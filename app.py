@@ -5,6 +5,22 @@ from vocab import fetch_lesson_content
 from grammar import get_grammar_content
 
 st.set_page_config(page_title="ITC 수업", layout="wide")
+
+# --- 비밀번호 확인 ---
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    st.title("🔒 ITC 수업")
+    pw = st.text_input("비밀번호를 입력하세요", type="password")
+    if st.button("확인"):
+        if pw == "1206":
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("비밀번호가 틀렸습니다.")
+    st.stop()
+
 st.title("📚 ITC 수업")
 
 # --- 날짜 선택 ---
