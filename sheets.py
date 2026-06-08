@@ -123,21 +123,20 @@ def get_student_progress(day: str) -> dict[str, dict]:
         if not name or name in ("이름", ""):
             continue
 
-        # C열(Homework): Level/Lesson 번호 추출
-        # 형식1: "Level 2 - Lesson 4", "level4 lesson 16"
-        # 형식2: "LV1-8과" → Level 1, Lesson 8
+        # 행 전체 텍스트에서 Level/Lesson 번호 추출 (C열뿐 아니라 모든 열 검색)
+        full_row_text = " ".join(row)
         lesson_num = None
         level_num = None
 
-        lv_dash = re.search(r"[Ll][Vv](\d+)-(\d+)과?", homework)
+        lv_dash = re.search(r"[Ll][Vv](\d+)-(\d+)과?", full_row_text)
         if lv_dash:
             level_num = int(lv_dash.group(1))
             lesson_num = int(lv_dash.group(2))
         else:
-            level_match = re.search(r"[Ll]evel\s*(\d+)|LV\s*(\d+)|Lv\s*(\d+)|레벨\s*(\d+)", homework)
+            level_match = re.search(r"[Ll]evel\s*(\d+)|LV\s*(\d+)|Lv\s*(\d+)|레벨\s*(\d+)", full_row_text)
             if level_match:
                 level_num = int(next(g for g in level_match.groups() if g))
-            lesson_match = re.search(r"[Ll]esson\s*(\d+)|레슨\s*(\d+)", homework)
+            lesson_match = re.search(r"[Ll]esson\s*(\d+)|레슨\s*(\d+)", full_row_text)
             if lesson_match:
                 lesson_num = int(next(g for g in lesson_match.groups() if g))
 
@@ -151,10 +150,12 @@ def get_student_progress(day: str) -> dict[str, dict]:
         else:
             grammar_ref = None
 
+        # 이미 더 완전한 정보가 있으면 병합 (레벨/레슨 없는 항목이 덮어쓰지 않도록)
+        existing = progress.get(name, {})
         progress[name] = {
-            "lesson": lesson_num,
-            "level": level_num,
-            "grammar_ref": grammar_ref,
+            "lesson": lesson_num if lesson_num is not None else existing.get("lesson"),
+            "level": level_num if level_num is not None else existing.get("level"),
+            "grammar_ref": grammar_ref if grammar_ref else existing.get("grammar_ref"),
             "homework_raw": homework,
             "boothwork_raw": boothwork,
         }
