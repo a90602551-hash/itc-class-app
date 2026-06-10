@@ -104,13 +104,11 @@ def get_student_groups(day: str) -> list[dict]:
 
 def get_student_progress(day: str) -> dict[str, dict]:
     """
-    모든 요일 과제 탭에서 학생별 진도 정보 추출.
+    해당 요일 과제 탭에서 학생별 진도 정보 추출.
     반환: {"학생명": {"lesson": 8, "level": 1, "grammar_ref": "B4-3"}, ...}
     """
-    all_rows = []
-    for sheet_name in HOMEWORK_SHEETS.values():
-        all_rows.extend(_fetch_sheet_data(sheet_name))
-    rows = all_rows
+    sheet_name = HOMEWORK_SHEETS.get(day)
+    rows = _fetch_sheet_data(sheet_name) if sheet_name else []
     progress = {}
 
     for row in rows:
@@ -150,12 +148,10 @@ def get_student_progress(day: str) -> dict[str, dict]:
         else:
             grammar_ref = None
 
-        # 이미 더 완전한 정보가 있으면 병합 (레벨/레슨 없는 항목이 덮어쓰지 않도록)
-        existing = progress.get(name, {})
         progress[name] = {
-            "lesson": lesson_num if lesson_num is not None else existing.get("lesson"),
-            "level": level_num if level_num is not None else existing.get("level"),
-            "grammar_ref": grammar_ref if grammar_ref else existing.get("grammar_ref"),
+            "lesson": lesson_num,
+            "level": level_num,
+            "grammar_ref": grammar_ref,
             "homework_raw": homework,
             "boothwork_raw": boothwork,
         }
