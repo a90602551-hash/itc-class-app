@@ -95,19 +95,21 @@ st.markdown("""
 div[data-testid="stVerticalBlock"] > div { gap: 0rem !important; }
 .element-container { margin-bottom: 0px !important; }
 
-/* 단어 버튼 */
-div[data-testid="column"] .stButton button {
+/* 단어 버튼 크게 */
+div[data-testid="column"] .stButton button[kind="primary"] {
     margin: 2px;
     border-radius: 16px;
-    font-size: 1.2em;
+    font-size: 1.6em !important;
     font-weight: bold;
-    padding: 4px 12px;
+    padding: 10px 8px;
     width: 100%;
+    min-height: 52px;
 }
-/* 교체 버튼 작게 */
-button[kind="secondary"] {
-    font-size: 0.75em !important;
-    padding: 2px 6px !important;
+/* 교체/저장/토글 버튼 작게 */
+div[data-testid="column"] .stButton button[kind="secondary"] {
+    font-size: 0.78em !important;
+    padding: 3px 6px !important;
+    min-height: 28px !important;
 }
 /* 구분선 여백 */
 hr { margin: 4px 0 !important; }
@@ -242,7 +244,7 @@ for i, name in enumerate(students):
             word_cols = st.columns(6)
             for slot, word_idx in enumerate(list(shown)):
                 with word_cols[slot * 2]:
-                    if st.button(f"✕ {words_clean[word_idx]}", key=f"del_{name}_{selected_idx}_{slot}"):
+                    if st.button(f"✕ {words_clean[word_idx]}", key=f"del_{name}_{selected_idx}_{slot}", type="primary"):
                         shown.pop(slot)
                         st.session_state[shown_key] = shown
                         st.rerun()
