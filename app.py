@@ -87,17 +87,34 @@ if st.session_state.get("current_group") != group_key:
 
 st.markdown("---")
 
-# 클릭 시 사라지는 단어 버튼 스타일
+# 레이아웃 압축 스타일
 st.markdown("""
 <style>
+/* 전체 여백 축소 */
+.block-container { padding-top: 0.5rem !important; padding-bottom: 0rem !important; }
+div[data-testid="stVerticalBlock"] > div { gap: 0rem !important; }
+.element-container { margin-bottom: 0px !important; }
+
+/* 단어 버튼 */
 div[data-testid="column"] .stButton button {
-    margin: 3px;
-    border-radius: 20px;
-    font-size: 1.1em;
+    margin: 2px;
+    border-radius: 16px;
+    font-size: 1.2em;
     font-weight: bold;
-    padding: 6px 16px;
-    transition: all 0.2s;
+    padding: 4px 12px;
+    width: 100%;
 }
+/* 교체 버튼 작게 */
+button[kind="secondary"] {
+    font-size: 0.75em !important;
+    padding: 2px 6px !important;
+}
+/* 구분선 여백 */
+hr { margin: 4px 0 !important; }
+/* 텍스트 영역 */
+.stTextArea textarea { font-size: 0.95em; }
+/* number input */
+.stNumberInput { margin-bottom: 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -218,17 +235,18 @@ for i, name in enumerate(students):
             words_clean = [item.split("(")[0].split("-")[0].strip() for item in items]
 
             remaining = len(pool)
-            label = f"단어/표현: " + (f"<span style='color:gray;font-size:0.8em;'>+{remaining}개 남음</span>" if remaining else "")
-            st.markdown(label, unsafe_allow_html=True)
+            if remaining:
+                st.markdown(f"<span style='color:gray;font-size:0.78em;'>+{remaining}개 남음</span>", unsafe_allow_html=True)
 
-            # 단어 3개를 가로로 배치
-            word_cols = st.columns(3)
+            # 단어: [✕ 단어] [🔄] 쌍으로 가로 6칸 배치
+            word_cols = st.columns(6)
             for slot, word_idx in enumerate(list(shown)):
-                with word_cols[slot]:
+                with word_cols[slot * 2]:
                     if st.button(f"✕ {words_clean[word_idx]}", key=f"del_{name}_{selected_idx}_{slot}"):
                         shown.pop(slot)
                         st.session_state[shown_key] = shown
                         st.rerun()
+                with word_cols[slot * 2 + 1]:
                     if pool and st.button("🔄", key=f"swap_{name}_{selected_idx}_{slot}"):
                         pool.append(shown[slot])
                         shown[slot] = pool.pop(0)
@@ -245,19 +263,31 @@ for i, name in enumerate(students):
             st.session_state[grammar_edit_key] = st.text_area(
                 label="",
                 value=st.session_state[grammar_edit_key],
-                height=90,
+                height=70,
                 key=f"grammar_box_{name}_{selected_idx}",
                 label_visibility="collapsed"
             )
 
-        # 프리토킹 포인트
-        ft_col, btn_col = st.columns([3, 1])
+        # 프리토킹 포인트 (한 줄로 압축)
+        ft_col, minus_col, num_col, plus_col, btn_col = st.columns([2, 0.4, 0.6, 0.4, 1])
         with ft_col:
-            free_pts = st.number_input("🏆 프리토킹 포인트", min_value=0, max_value=20,
-                                       value=0, step=1, key=f"ft_{name}_{selected_idx}")
+            st.markdown("<span style='font-size:0.9em;'>🏆 프리토킹</span>", unsafe_allow_html=True)
+        free_key = f"ft_{name}_{selected_idx}"
+        if free_key not in st.session_state:
+            st.session_state[free_key] = 0
+        with minus_col:
+            if st.button("－", key=f"ftm_{name}_{selected_idx}"):
+                st.session_state[free_key] = max(0, st.session_state[free_key] - 1)
+                st.rerun()
+        with num_col:
+            st.markdown(f"<div style='text-align:center;font-size:1.2em;font-weight:bold;padding-top:4px'>{st.session_state[free_key]}</div>", unsafe_allow_html=True)
+        with plus_col:
+            if st.button("＋", key=f"ftp_{name}_{selected_idx}"):
+                st.session_state[free_key] = min(20, st.session_state[free_key] + 1)
+                st.rerun()
         with btn_col:
-            st.markdown("<div style='margin-top:28px'/>", unsafe_allow_html=True)
             if st.button("저장", key=f"save_pts_{name}_{selected_idx}"):
+                free_pts = st.session_state[free_key]
                 if free_pts == 0:
                     st.warning("0점입니다.")
                 else:
@@ -266,6 +296,7 @@ for i, name in enumerate(students):
                         new_total = add_points(student_fb["id"], student_fb["name"],
                                                free_pts, f"프리토킹({free_pts}점)")
                         st.success(f"✅ +{free_pts}점 (누적: {new_total}점)")
+                        st.session_state[free_key] = 0
                     else:
                         st.error(f"포인트 앱에서 '{full_name}' 학생을 찾을 수 없습니다.")
 
