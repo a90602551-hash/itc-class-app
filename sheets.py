@@ -157,3 +157,32 @@ def get_student_progress(day: str) -> dict[str, dict]:
         }
 
     return progress
+
+
+def get_student_checks(day: str, student_names: list[str]) -> dict[str, dict]:
+    """
+    해당 요일 과제 탭에서 특정 학생들의 체크 항목 읽기.
+    반환: {"학생명": {"과제완수": True, "레슨통과": False, "부스클리닉": True}, ...}
+    D열=지각1회, E열=지각2회, F열=과제완수, G열=레슨통과, H열=프리토킹, I열=부스&클리닉
+    """
+    sheet_name = HOMEWORK_SHEETS.get(day)
+    if not sheet_name:
+        return {}
+    rows = _fetch_sheet_data(sheet_name)
+
+    result = {}
+    for row in rows:
+        if not row:
+            continue
+        name = row[0].strip()
+        if name not in student_names:
+            continue
+        hw_check = str(row[5]).upper() == "TRUE" if len(row) > 5 else False   # F열: 과제완수
+        ls_check = str(row[6]).upper() == "TRUE" if len(row) > 6 else False   # G열: 레슨통과
+        cl_check = str(row[8]).upper() == "TRUE" if len(row) > 8 else False   # I열: 부스&클리닉
+        result[name] = {
+            "과제완수": hw_check,
+            "레슨통과": ls_check,
+            "부스클리닉": cl_check,
+        }
+    return result

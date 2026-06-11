@@ -1,6 +1,6 @@
 import streamlit as st
 import datetime
-from sheets import get_student_groups, get_student_progress, match_full_name, clear_cache
+from sheets import get_student_groups, get_student_progress, match_full_name, clear_cache, get_student_checks
 from vocab import fetch_lesson_content
 from grammar import get_grammar_content
 from firebase_points import find_student_by_name, add_points
@@ -100,6 +100,34 @@ div[data-testid="column"] .stButton button {
 }
 </style>
 """, unsafe_allow_html=True)
+
+# 체크 항목 포인트 일괄 집계 버튼
+if st.button("✅ 이 수업 체크 포인트 집계", help="과제완수/레슨통과/부스&클리닉 체크 항목을 읽어 포인트 앱에 반영"):
+    weekday = st.session_state.get("weekday", "")
+    full_names = [match_full_name(n, list(progress.keys())) or n for n in students]
+    checks = get_student_checks(weekday, full_names)
+    results = []
+    for full_name in full_names:
+        chk = checks.get(full_name)
+        if not chk:
+            results.append(f"❌ {full_name}: 시트에서 찾을 수 없음")
+            continue
+        pts = int(chk["과제완수"]) + int(chk["레슨통과"]) + int(chk["부스클리닉"])
+        if pts == 0:
+            results.append(f"⬜ {full_name}: 체크 없음 (0점)")
+            continue
+        student_fb = find_student_by_name(full_name)
+        if not student_fb:
+            results.append(f"❌ {full_name}: 포인트 앱에서 찾을 수 없음")
+            continue
+        reasons = []
+        if chk["과제완수"]: reasons.append("과제완수")
+        if chk["레슨통과"]: reasons.append("레슨통과")
+        if chk["부스클리닉"]: reasons.append("부스&클리닉")
+        new_total = add_points(student_fb["id"], full_name, pts, ", ".join(reasons))
+        results.append(f"✅ {full_name}: +{pts}점 → 누적 {new_total}점")
+    for r in results:
+        st.write(r)
 
 cols = st.columns(min(len(students), 2))
 

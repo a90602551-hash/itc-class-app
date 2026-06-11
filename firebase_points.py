@@ -38,15 +38,11 @@ def _get_db():
 
 
 def find_student_by_name(name: str) -> dict | None:
-    """이름으로 학생 찾기 (부분 일치)"""
+    """이름으로 학생 찾기 (정확 일치)"""
     db = _get_db()
-    students = db.collection("students").stream()
-    for doc in students:
-        data = doc.to_dict()
-        student_name = data.get("name", "")
-        # 전체 이름 또는 부분 이름 매칭
-        if name in student_name or student_name in name:
-            return {"id": doc.id, **data}
+    docs = db.collection("students").where("name", "==", name).limit(1).stream()
+    for doc in docs:
+        return {"id": doc.id, **doc.to_dict()}
     return None
 
 
