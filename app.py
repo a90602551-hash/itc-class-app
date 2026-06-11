@@ -95,21 +95,12 @@ st.markdown("""
 div[data-testid="stVerticalBlock"] > div { gap: 0rem !important; }
 .element-container { margin-bottom: 0px !important; }
 
-/* 단어 버튼 크게 */
-div[data-testid="column"] .stButton button[kind="primary"] {
+/* 모든 버튼 기본 작게 */
+div[data-testid="column"] .stButton button {
+    font-size: 0.85em !important;
+    padding: 4px 10px !important;
+    min-height: 30px !important;
     margin: 2px;
-    border-radius: 16px;
-    font-size: 1.6em !important;
-    font-weight: bold;
-    padding: 10px 8px;
-    width: 100%;
-    min-height: 52px;
-}
-/* 교체/저장/토글 버튼 작게 */
-div[data-testid="column"] .stButton button[kind="secondary"] {
-    font-size: 0.78em !important;
-    padding: 3px 6px !important;
-    min-height: 28px !important;
 }
 /* 구분선 여백 */
 hr { margin: 4px 0 !important; }
@@ -268,21 +259,24 @@ for i, name in enumerate(students):
             if remaining:
                 st.markdown(f"<span style='color:gray;font-size:0.78em;'>+{remaining}개 남음</span>", unsafe_allow_html=True)
 
-            # 단어: [✕ 단어] [🔄] 쌍으로 가로 6칸 배치
-            word_cols = st.columns(6)
+            # 단어: 큰 텍스트 + 작은 ✕ 🔄 버튼
+            word_cols = st.columns(3)
             for slot, word_idx in enumerate(list(shown)):
-                with word_cols[slot * 2]:
-                    if st.button(f"✕ {words_clean[word_idx]}", key=f"del_{name}_{selected_idx}_{slot}", type="primary"):
-                        shown.pop(slot)
-                        st.session_state[shown_key] = shown
-                        st.rerun()
-                with word_cols[slot * 2 + 1]:
-                    if pool and st.button("🔄", key=f"swap_{name}_{selected_idx}_{slot}"):
-                        pool.append(shown[slot])
-                        shown[slot] = pool.pop(0)
-                        st.session_state[shown_key] = shown
-                        st.session_state[pool_key] = pool
-                        st.rerun()
+                with word_cols[slot]:
+                    st.markdown(f"<div style='font-size:1.7em;font-weight:bold;text-align:center;padding:6px 0;'>{words_clean[word_idx]}</div>", unsafe_allow_html=True)
+                    btn_c1, btn_c2 = st.columns(2)
+                    with btn_c1:
+                        if st.button("✕ 지우기", key=f"del_{name}_{selected_idx}_{slot}"):
+                            shown.pop(slot)
+                            st.session_state[shown_key] = shown
+                            st.rerun()
+                    with btn_c2:
+                        if pool and st.button("🔄 바꾸기", key=f"swap_{name}_{selected_idx}_{slot}"):
+                            pool.append(shown[slot])
+                            shown[slot] = pool.pop(0)
+                            st.session_state[shown_key] = shown
+                            st.session_state[pool_key] = pool
+                            st.rerun()
 
         # 문법 항목 (편집 가능한 텍스트박스)
         if grammar_text:
