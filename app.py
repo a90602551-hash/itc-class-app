@@ -194,8 +194,8 @@ for i, name in enumerate(students):
                 st.session_state["modes"][name] = "expressions"
                 st.rerun()
         with hc4:
-            typed = st.number_input("🏆", min_value=0, max_value=20, value=st.session_state[free_key],
-                                    step=1, key=f"ft_input_{name}_{selected_idx}", label_visibility="collapsed")
+            typed = st.number_input("🏆 프리토킹", min_value=0, max_value=20, value=st.session_state[free_key],
+                                    step=1, key=f"ft_input_{name}_{selected_idx}")
             st.session_state[free_key] = typed
         with hc5:
             if st.button("저장", key=f"save_pts_{name}_{selected_idx}"):
