@@ -23,7 +23,14 @@ def fetch_lesson_content(level: int, lesson: int) -> dict:
     words = _parse_section(text, "NEW WORDS", "NEW EXPRESSIONS")
     expressions = _parse_section(text, "NEW EXPRESSIONS", "DIALOGUE")
 
-    return {"words": words, "expressions": expressions}
+    # 레슨 제목 추출 (div.ttl → "LESSON 01Introduction (소개)" 형태)
+    title = ""
+    ttl_div = soup.find("div", class_="ttl")
+    if ttl_div:
+        raw = ttl_div.get_text(strip=True)
+        title = re.sub(r"LESSON\s*\d+", "", raw).strip()
+
+    return {"words": words, "expressions": expressions, "title": title}
 
 
 def _parse_section(text: str, start_marker: str, end_marker: str) -> list[str]:

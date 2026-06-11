@@ -101,6 +101,24 @@ div[data-testid="column"] .stButton button {
 </style>
 """, unsafe_allow_html=True)
 
+# 오늘의 대화 주제 (진도 가장 낮은 학생 기준)
+lowest = None
+for name in students:
+    full_name = match_full_name(name, list(progress.keys())) or name
+    p = progress.get(full_name, {})
+    lv, ls = p.get("level"), p.get("lesson")
+    if lv and ls:
+        if lowest is None or (lv, ls) < (lowest[0], lowest[1]):
+            lowest = (lv, ls)
+
+if lowest:
+    topic_key = f"content_L{lowest[0]}_L{lowest[1]}"
+    if topic_key not in st.session_state:
+        st.session_state[topic_key] = fetch_lesson_content(lowest[0], lowest[1])
+    topic_title = st.session_state[topic_key].get("title", "")
+    if topic_title:
+        st.markdown(f"### 💬 오늘의 대화 주제: {topic_title}")
+
 # 체크 항목 포인트 일괄 집계 버튼
 if st.button("✅ 이 수업 체크 포인트 집계", help="과제완수/레슨통과/부스&클리닉 체크 항목을 읽어 포인트 앱에 반영"):
     weekday = st.session_state.get("weekday", "")
