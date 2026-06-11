@@ -92,10 +92,8 @@ st.markdown("""
 <style>
 /* 전체 여백 축소 */
 .block-container { padding-top: 0.5rem !important; padding-bottom: 0rem !important; }
-div[data-testid="stVerticalBlock"] > div { gap: 0rem !important; }
-.element-container { margin-bottom: 0px !important; }
-/* 컬럼 내부 수직 간격 제거 */
-div[data-testid="stVerticalBlock"] { gap: 0px !important; }
+div[data-testid="stVerticalBlock"] > div { gap: 0.15rem !important; }
+.element-container { margin-bottom: 2px !important; }
 
 /* 모든 버튼 작게 */
 div[data-testid="column"] .stButton button {
@@ -261,7 +259,7 @@ for i, name in enumerate(students):
             word_cols = st.columns(3)
             for slot, word_idx in enumerate(list(shown)):
                 with word_cols[slot]:
-                    st.markdown(f"<div style='font-size:1.7em;font-weight:bold;text-align:center;padding:2px 0;line-height:1.2;'>{words_clean[word_idx]}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:1.7em;font-weight:bold;text-align:center;padding:8px 0 4px 0;line-height:1.3;'>{words_clean[word_idx]}</div>", unsafe_allow_html=True)
                     btn_c1, btn_c2 = st.columns(2)
                     with btn_c1:
                         if st.button("✕ 지우기", key=f"del_{name}_{selected_idx}_{slot}"):
