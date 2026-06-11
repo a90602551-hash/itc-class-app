@@ -204,42 +204,22 @@ for i, name in enumerate(students):
                 label_visibility="collapsed"
             )
 
-        # 포인트 입력 UI
-        st.markdown("**🏆 포인트**")
-        pc1, pc2, pc3, pc4 = st.columns(4)
-        with pc1:
-            hw_done = st.checkbox("과제완수 +1", key=f"hw_{name}_{selected_idx}")
-        with pc2:
-            lesson_done = st.checkbox("레슨통과 +1", key=f"lp_{name}_{selected_idx}")
-        with pc3:
-            clinic_done = st.checkbox("부스&클리닉 +1", key=f"cl_{name}_{selected_idx}")
-        with pc4:
-            free_pts = st.number_input("프리토킹", min_value=0, max_value=20, value=0,
-                                       step=1, key=f"ft_{name}_{selected_idx}")
-
-        total_pts = int(hw_done) + int(lesson_done) + int(clinic_done) + int(free_pts)
-        save_key = f"saved_{name}_{selected_idx}"
-
-        col_pts, col_btn = st.columns([3, 1])
-        with col_pts:
-            st.markdown(f"합계: **{total_pts}점**")
-        with col_btn:
+        # 프리토킹 포인트
+        ft_col, btn_col = st.columns([3, 1])
+        with ft_col:
+            free_pts = st.number_input("🏆 프리토킹 포인트", min_value=0, max_value=20,
+                                       value=0, step=1, key=f"ft_{name}_{selected_idx}")
+        with btn_col:
+            st.markdown("<div style='margin-top:28px'/>", unsafe_allow_html=True)
             if st.button("저장", key=f"save_pts_{name}_{selected_idx}"):
-                if total_pts == 0:
-                    st.warning("포인트가 0점입니다.")
+                if free_pts == 0:
+                    st.warning("0점입니다.")
                 else:
                     student_fb = find_student_by_name(full_name)
                     if student_fb:
-                        reasons = []
-                        if hw_done: reasons.append("과제완수")
-                        if lesson_done: reasons.append("레슨통과")
-                        if clinic_done: reasons.append("부스&클리닉")
-                        if free_pts > 0: reasons.append(f"프리토킹({free_pts}점)")
-                        reason_str = ", ".join(reasons)
                         new_total = add_points(student_fb["id"], student_fb["name"],
-                                               total_pts, reason_str)
-                        st.success(f"✅ {student_fb['name']} +{total_pts}점 (누적: {new_total}점)")
-                        st.session_state[save_key] = True
+                                               free_pts, f"프리토킹({free_pts}점)")
+                        st.success(f"✅ +{free_pts}점 (누적: {new_total}점)")
                     else:
                         st.error(f"포인트 앱에서 '{full_name}' 학생을 찾을 수 없습니다.")
 
