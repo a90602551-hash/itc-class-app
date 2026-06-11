@@ -181,8 +181,12 @@ for i, name in enumerate(students):
 
         current_mode = st.session_state["modes"].get(name, "words")
 
-        # 이름 + 문장수 + 단어/표현 토글 한 줄에
-        hc1, hc2, hc3 = st.columns([4, 1, 1])
+        # 이름 + 문장수 + 단어/표현 토글 + 프리토킹 한 줄에
+        free_key = f"ft_{name}_{selected_idx}"
+        if free_key not in st.session_state:
+            st.session_state[free_key] = 0
+
+        hc1, hc2, hc3, hc4, hc5, hc6, hc7 = st.columns([4, 1, 1, 0.5, 0.5, 0.5, 1])
         with hc1:
             if level and lesson:
                 st.markdown(f"**👤 {name}** <span style='color:gray;font-size:0.85em;'>— {sentence_count}문장 | L{level} Lesson {lesson} | 문법:{grammar_ref or '없음'}</span>", unsafe_allow_html=True)
@@ -196,6 +200,30 @@ for i, name in enumerate(students):
             if st.button("표현", key=f"expr_{name}_{selected_idx}", type="primary" if current_mode == "expressions" else "secondary"):
                 st.session_state["modes"][name] = "expressions"
                 st.rerun()
+        with hc4:
+            if st.button("－", key=f"ftm_{name}_{selected_idx}"):
+                st.session_state[free_key] = max(0, st.session_state[free_key] - 1)
+                st.rerun()
+        with hc5:
+            st.markdown(f"<div style='text-align:center;font-size:1.1em;font-weight:bold;padding-top:5px'>🏆{st.session_state[free_key]}</div>", unsafe_allow_html=True)
+        with hc6:
+            if st.button("＋", key=f"ftp_{name}_{selected_idx}"):
+                st.session_state[free_key] = min(20, st.session_state[free_key] + 1)
+                st.rerun()
+        with hc7:
+            if st.button("저장", key=f"save_pts_{name}_{selected_idx}"):
+                free_pts = st.session_state[free_key]
+                if free_pts == 0:
+                    st.warning("0점입니다.")
+                else:
+                    student_fb = find_student_by_name(full_name)
+                    if student_fb:
+                        new_total = add_points(student_fb["id"], student_fb["name"],
+                                               free_pts, f"프리토킹({free_pts}점)")
+                        st.success(f"✅ +{free_pts}점 (누적: {new_total}점)")
+                        st.session_state[free_key] = 0
+                    else:
+                        st.error(f"포인트 앱에서 '{full_name}' 학생을 찾을 수 없습니다.")
 
         # 내용 로드
         items = []
@@ -270,36 +298,5 @@ for i, name in enumerate(students):
                 label_visibility="collapsed"
             )
 
-        # 프리토킹 포인트 (한 줄로 압축)
-        ft_col, minus_col, num_col, plus_col, btn_col = st.columns([2, 0.4, 0.6, 0.4, 1])
-        with ft_col:
-            st.markdown("<span style='font-size:0.9em;'>🏆 프리토킹</span>", unsafe_allow_html=True)
-        free_key = f"ft_{name}_{selected_idx}"
-        if free_key not in st.session_state:
-            st.session_state[free_key] = 0
-        with minus_col:
-            if st.button("－", key=f"ftm_{name}_{selected_idx}"):
-                st.session_state[free_key] = max(0, st.session_state[free_key] - 1)
-                st.rerun()
-        with num_col:
-            st.markdown(f"<div style='text-align:center;font-size:1.2em;font-weight:bold;padding-top:4px'>{st.session_state[free_key]}</div>", unsafe_allow_html=True)
-        with plus_col:
-            if st.button("＋", key=f"ftp_{name}_{selected_idx}"):
-                st.session_state[free_key] = min(20, st.session_state[free_key] + 1)
-                st.rerun()
-        with btn_col:
-            if st.button("저장", key=f"save_pts_{name}_{selected_idx}"):
-                free_pts = st.session_state[free_key]
-                if free_pts == 0:
-                    st.warning("0점입니다.")
-                else:
-                    student_fb = find_student_by_name(full_name)
-                    if student_fb:
-                        new_total = add_points(student_fb["id"], student_fb["name"],
-                                               free_pts, f"프리토킹({free_pts}점)")
-                        st.success(f"✅ +{free_pts}점 (누적: {new_total}점)")
-                        st.session_state[free_key] = 0
-                    else:
-                        st.error(f"포인트 앱에서 '{full_name}' 학생을 찾을 수 없습니다.")
 
         st.markdown("")
