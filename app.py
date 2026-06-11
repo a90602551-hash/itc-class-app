@@ -102,6 +102,8 @@ div[data-testid="column"] .stButton button {
     min-height: 28px !important;
     margin: 1px;
 }
+/* 컬럼 사이 간격 제거 */
+div[data-testid="stHorizontalBlock"] { gap: 4px !important; }
 /* 구분선 여백 */
 hr { margin: 3px 0 !important; }
 /* 문법 텍스트 영역 폰트 크게 */
