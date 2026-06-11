@@ -94,20 +94,24 @@ st.markdown("""
 .block-container { padding-top: 0.5rem !important; padding-bottom: 0rem !important; }
 div[data-testid="stVerticalBlock"] > div { gap: 0rem !important; }
 .element-container { margin-bottom: 0px !important; }
+/* 컬럼 내부 수직 간격 제거 */
+div[data-testid="stVerticalBlock"] { gap: 0px !important; }
 
-/* 모든 버튼 기본 작게 */
+/* 모든 버튼 작게 */
 div[data-testid="column"] .stButton button {
-    font-size: 0.85em !important;
-    padding: 4px 10px !important;
-    min-height: 30px !important;
-    margin: 2px;
+    font-size: 0.82em !important;
+    padding: 3px 8px !important;
+    min-height: 28px !important;
+    margin: 1px;
 }
 /* 구분선 여백 */
-hr { margin: 4px 0 !important; }
-/* 텍스트 영역 */
-.stTextArea textarea { font-size: 0.95em; }
-/* number input */
+hr { margin: 3px 0 !important; }
+/* 문법 텍스트 영역 폰트 크게 */
+.stTextArea textarea { font-size: 1.15em !important; line-height: 1.5 !important; }
+/* number input 여백 제거 */
 .stNumberInput { margin-bottom: 0 !important; }
+/* 단어 표시 영역 위아래 패딩 제거 */
+.word-display { margin: 0 !important; padding: 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -177,7 +181,7 @@ for i, name in enumerate(students):
         if free_key not in st.session_state:
             st.session_state[free_key] = 0
 
-        hc1, hc2, hc3, hc4, hc5, hc6, hc7 = st.columns([4, 1, 1, 0.5, 0.5, 0.5, 1])
+        hc1, hc2, hc3, hc4, hc5 = st.columns([4, 1, 1, 1, 1])
         with hc1:
             if level and lesson:
                 st.markdown(f"**👤 {name}** <span style='color:gray;font-size:0.85em;'>— {sentence_count}문장 | L{level} Lesson {lesson} | 문법:{grammar_ref or '없음'}</span>", unsafe_allow_html=True)
@@ -192,16 +196,10 @@ for i, name in enumerate(students):
                 st.session_state["modes"][name] = "expressions"
                 st.rerun()
         with hc4:
-            if st.button("－", key=f"ftm_{name}_{selected_idx}"):
-                st.session_state[free_key] = max(0, st.session_state[free_key] - 1)
-                st.rerun()
+            typed = st.number_input("🏆", min_value=0, max_value=20, value=st.session_state[free_key],
+                                    step=1, key=f"ft_input_{name}_{selected_idx}", label_visibility="collapsed")
+            st.session_state[free_key] = typed
         with hc5:
-            st.markdown(f"<div style='text-align:center;font-size:1.1em;font-weight:bold;padding-top:5px'>🏆{st.session_state[free_key]}</div>", unsafe_allow_html=True)
-        with hc6:
-            if st.button("＋", key=f"ftp_{name}_{selected_idx}"):
-                st.session_state[free_key] = min(20, st.session_state[free_key] + 1)
-                st.rerun()
-        with hc7:
             if st.button("저장", key=f"save_pts_{name}_{selected_idx}"):
                 free_pts = st.session_state[free_key]
                 if free_pts == 0:
@@ -263,7 +261,7 @@ for i, name in enumerate(students):
             word_cols = st.columns(3)
             for slot, word_idx in enumerate(list(shown)):
                 with word_cols[slot]:
-                    st.markdown(f"<div style='font-size:1.7em;font-weight:bold;text-align:center;padding:6px 0;'>{words_clean[word_idx]}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:1.7em;font-weight:bold;text-align:center;padding:2px 0;line-height:1.2;'>{words_clean[word_idx]}</div>", unsafe_allow_html=True)
                     btn_c1, btn_c2 = st.columns(2)
                     with btn_c1:
                         if st.button("✕ 지우기", key=f"del_{name}_{selected_idx}_{slot}"):
@@ -283,7 +281,6 @@ for i, name in enumerate(students):
             grammar_edit_key = f"grammar_edit_{name}_{selected_idx}"
             if grammar_edit_key not in st.session_state:
                 st.session_state[grammar_edit_key] = grammar_text
-            st.markdown("**문법:**")
             st.session_state[grammar_edit_key] = st.text_area(
                 label="",
                 value=st.session_state[grammar_edit_key],
