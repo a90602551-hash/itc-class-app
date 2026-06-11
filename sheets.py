@@ -170,7 +170,13 @@ def get_student_checks(day: str, student_names: list[str]) -> dict[str, dict]:
     sheet_name = HOMEWORK_SHEETS.get(day)
     if not sheet_name:
         return {}
-    rows = _fetch_sheet_data(sheet_name)
+    # 체크 항목은 실시간 반영이 필요하므로 캐시 무시하고 새로 가져옴
+    xlsx_bytes = _get_xlsx(force_refresh=True)
+    wb = load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
+    if sheet_name not in wb.sheetnames:
+        return {}
+    ws = wb[sheet_name]
+    rows = [[str(cell) if cell is not None else "" for cell in row] for row in ws.iter_rows(values_only=True)]
 
     result = {}
     for row in rows:
