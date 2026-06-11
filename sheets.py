@@ -6,6 +6,8 @@ from openpyxl import load_workbook
 from auth import auth_headers
 from config import SHEET_ID, DAY_SHEETS, HOMEWORK_SHEETS
 
+SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets"
+
 _xlsx_cache: bytes | None = None
 
 
@@ -186,3 +188,34 @@ def get_student_checks(day: str, student_names: list[str]) -> dict[str, dict]:
             "부스클리닉": cl_check,
         }
     return result
+
+
+def write_freetalk_points(day: str, student_name: str, points: int) -> bool:
+    """
+    해당 요일 과제 탭의 H열(프리토킹)에 점수 기록.
+    학생 이름으로 행을 찾아 H열에 숫자 덮어쓰기.
+    """
+    sheet_name = HOMEWORK_SHEETS.get(day)
+    if not sheet_name:
+        return False
+
+    # 행 번호 찾기 (1-based)
+    rows = _fetch_sheet_data(sheet_name)
+    row_num = None
+    for idx, row in enumerate(rows):
+        if row and row[0].strip() == student_name:
+            row_num = idx + 1  # 1-based
+            break
+
+    if not row_num:
+        return False
+
+    # H열 = 8번째 열
+    range_notation = f"'{sheet_name}'!H{row_num}"
+    url = f"{SHEETS_API}/{SHEET_ID}/values/{requests.utils.quote(range_notation, safe='')}?valueInputOption=RAW"
+    resp = requests.put(
+        url,
+        headers={**auth_headers(), "Content-Type": "application/json"},
+        json={"values": [[points]]}
+    )
+    return resp.status_code == 200

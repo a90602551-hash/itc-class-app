@@ -1,6 +1,6 @@
 import streamlit as st
 import datetime
-from sheets import get_student_groups, get_student_progress, match_full_name, clear_cache, get_student_checks
+from sheets import get_student_groups, get_student_progress, match_full_name, clear_cache, get_student_checks, write_freetalk_points
 from vocab import fetch_lesson_content
 from grammar import get_grammar_content
 from firebase_points import find_student_by_name, add_points
@@ -209,6 +209,9 @@ for i, name in enumerate(students):
                     if student_fb:
                         new_total = add_points(student_fb["id"], student_fb["name"],
                                                free_pts, f"프리토킹({free_pts}점)")
+                        # 시트 H열에도 기록
+                        wd = st.session_state.get("weekday", weekday)
+                        write_freetalk_points(wd, full_name, free_pts)
                         st.success(f"✅ +{free_pts}점 (누적: {new_total}점)")
                         st.session_state[free_key] = 0
                     else:
