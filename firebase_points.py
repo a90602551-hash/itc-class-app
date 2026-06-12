@@ -8,33 +8,34 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 _SA_FILE = os.path.join(os.path.dirname(__file__), "firebase_service_account.json")
+_APP_NAME = "fluent_point"
 
-_fb_app = None
 
 def _get_db():
-    global _fb_app
-    if _fb_app is None:
-        # Streamlit Cloud: secrets에서 읽기
-        try:
-            import streamlit as st
-            if "firebase_service_account" in st.secrets:
-                import json, tempfile
-                info = dict(st.secrets["firebase_service_account"])
-                # private_key 줄바꿈 복원
-                info["private_key"] = info["private_key"].replace("\\n", "\n")
-                cred = credentials.Certificate(info)
-                _fb_app = firebase_admin.initialize_app(cred, name="fluent_point")
-            else:
-                raise KeyError
-        except Exception:
-            # 로컬: JSON 파일
-            cred = credentials.Certificate(_SA_FILE)
-            try:
-                _fb_app = firebase_admin.initialize_app(cred, name="fluent_point")
-            except ValueError:
-                _fb_app = firebase_admin.get_app("fluent_point")
+    # 이미 초기화된 앱 재사용
+    try:
+        app = firebase_admin.get_app(_APP_NAME)
+        return firestore.client(app)
+    except ValueError:
+        pass  # 앱 아직 없음, 아래에서 초기화
 
-    return firestore.client(firebase_admin.get_app("fluent_point"))
+    # Streamlit Cloud secrets 시도
+    try:
+        import streamlit as st
+        sa = st.secrets.get("firebase_service_account")
+        if sa:
+            info = dict(sa)
+            info["private_key"] = info["private_key"].replace("\\n", "\n")
+            cred = credentials.Certificate(info)
+            app = firebase_admin.initialize_app(cred, name=_APP_NAME)
+            return firestore.client(app)
+    except Exception:
+        pass
+
+    # 로컬 JSON 파일
+    cred = credentials.Certificate(_SA_FILE)
+    app = firebase_admin.initialize_app(cred, name=_APP_NAME)
+    return firestore.client(app)
 
 
 def find_student_by_name(name: str) -> dict | None:
@@ -53,7 +54,6 @@ def add_points(student_id: str, student_name: str, point_change: int, reason: st
     db = _get_db()
     now = datetime.datetime.now()
 
-    # point_records에 기록
     db.collection("point_records").add({
         "student_id": student_id,
         "student_name": student_name,
@@ -65,7 +65,6 @@ def add_points(student_id: str, student_name: str, point_change: int, reason: st
         "updated_at": now,
     })
 
-    # students total_points 업데이트
     student_ref = db.collection("students").doc(student_id)
     student = student_ref.get().to_dict()
     new_total = (student.get("total_points") or 0) + point_change
