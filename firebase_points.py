@@ -9,33 +9,41 @@ from firebase_admin import credentials, firestore
 
 _SA_FILE = os.path.join(os.path.dirname(__file__), "firebase_service_account.json")
 _APP_NAME = "fluent_point"
+_db = None
 
 
 def _get_db():
-    # 이미 초기화된 앱 재사용
+    global _db
+    if _db is not None:
+        return _db
+
+    # 이미 초기화된 Firebase 앱 재사용
     try:
         app = firebase_admin.get_app(_APP_NAME)
-        return firestore.client(app)
+        _db = firestore.client(app)
+        return _db
     except ValueError:
-        pass  # 앱 아직 없음, 아래에서 초기화
+        pass  # 앱 아직 없음
 
     # Streamlit Cloud secrets 시도
     try:
         import streamlit as st
         sa = st.secrets.get("firebase_service_account")
-        if sa:
-            info = dict(sa)
+        if sa is not None:
+            info = {k: v for k, v in sa.items()}
             info["private_key"] = info["private_key"].replace("\\n", "\n")
             cred = credentials.Certificate(info)
             app = firebase_admin.initialize_app(cred, name=_APP_NAME)
-            return firestore.client(app)
-    except Exception:
-        pass
+            _db = firestore.client(app)
+            return _db
+    except Exception as e:
+        raise RuntimeError(f"Firebase secrets 로드 실패: {e}")
 
     # 로컬 JSON 파일
     cred = credentials.Certificate(_SA_FILE)
     app = firebase_admin.initialize_app(cred, name=_APP_NAME)
-    return firestore.client(app)
+    _db = firestore.client(app)
+    return _db
 
 
 def find_student_by_name(name: str) -> dict | None:
@@ -50,7 +58,7 @@ def find_student_by_name(name: str) -> dict | None:
 def add_points(student_id: str, student_name: str, point_change: int, reason: str, category: str = "수업포인트"):
     """포인트 추가/차감"""
     if point_change == 0:
-        return
+        return 0
     db = _get_db()
     now = datetime.datetime.now()
 
@@ -66,8 +74,9 @@ def add_points(student_id: str, student_name: str, point_change: int, reason: st
     })
 
     student_ref = db.collection("students").doc(student_id)
-    student = student_ref.get().to_dict()
-    new_total = (student.get("total_points") or 0) + point_change
+    student_snap = student_ref.get()
+    student_data = student_snap.to_dict() or {}
+    new_total = (student_data.get("total_points") or 0) + point_change
     student_ref.update({"total_points": new_total, "updated_at": now})
 
     return new_total
