@@ -133,31 +133,39 @@ if lowest:
     if topic_title:
         st.markdown(f"### 💬 오늘의 대화 주제: {topic_title}")
 
-# 체크 항목 포인트 일괄 집계 버튼
-if st.button("✅ 이 수업 체크 포인트 집계", help="과제완수/레슨통과/부스&클리닉 체크 항목을 읽어 포인트 앱에 반영"):
-    weekday = st.session_state.get("weekday", "")
+# 체크 항목 + 프리토킹 포인트 일괄 집계 버튼
+if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통과/부스&클리닉 체크 + 프리토킹 포인트를 한꺼번에 반영"):
+    wd = st.session_state.get("weekday", weekday)
     full_names = [match_full_name(n, list(progress.keys())) or n for n in students]
-    checks = get_student_checks(weekday, full_names)
+    checks = get_student_checks(wd, full_names)
     results = []
-    for full_name in full_names:
-        chk = checks.get(full_name)
-        if not chk:
-            results.append(f"❌ {full_name}: 시트에서 찾을 수 없음")
+    for name, full_name in zip(students, full_names):
+        chk = checks.get(full_name, {})
+        check_pts = int(chk.get("과제완수", False)) + int(chk.get("레슨통과", False)) + int(chk.get("부스클리닉", False))
+        free_pts = st.session_state.get(f"ft_{name}_{selected_idx}", 0)
+        total_pts = check_pts + free_pts
+
+        if total_pts == 0:
+            results.append(f"⬜ {full_name}: 포인트 없음")
             continue
-        pts = int(chk["과제완수"]) + int(chk["레슨통과"]) + int(chk["부스클리닉"])
-        if pts == 0:
-            results.append(f"⬜ {full_name}: 체크 없음 (0점)")
-            continue
+
         student_fb = find_student_by_name(full_name)
         if not student_fb:
             results.append(f"❌ {full_name}: 포인트 앱에서 찾을 수 없음")
             continue
+
         reasons = []
-        if chk["과제완수"]: reasons.append("과제완수")
-        if chk["레슨통과"]: reasons.append("레슨통과")
-        if chk["부스클리닉"]: reasons.append("부스&클리닉")
-        new_total = add_points(student_fb["id"], full_name, pts, ", ".join(reasons))
-        results.append(f"✅ {full_name}: +{pts}점 → 누적 {new_total}점")
+        if chk.get("과제완수"): reasons.append("과제완수")
+        if chk.get("레슨통과"): reasons.append("레슨통과")
+        if chk.get("부스클리닉"): reasons.append("부스&클리닉")
+        if free_pts > 0: reasons.append(f"프리토킹({free_pts}점)")
+
+        new_total = add_points(student_fb["id"], full_name, total_pts, ", ".join(reasons))
+
+        if free_pts > 0:
+            write_freetalk_points(wd, full_name, free_pts)
+
+        results.append(f"✅ {full_name}: +{total_pts}점 → 누적 {new_total}점")
     for r in results:
         st.write(r)
 
@@ -181,7 +189,7 @@ for i, name in enumerate(students):
         if free_key not in st.session_state:
             st.session_state[free_key] = 0
 
-        hc1, hc2, hc3, hc4, hc5 = st.columns([4, 1, 1, 1, 1])
+        hc1, hc2, hc3, hc4 = st.columns([4, 1, 1, 1])
         with hc1:
             if level and lesson:
                 st.markdown(f"**👤 {name}** <span style='color:gray;font-size:0.85em;'>— {sentence_count}문장 | L{level} Lesson {lesson} | 문법:{grammar_ref or '없음'}</span>", unsafe_allow_html=True)
@@ -199,23 +207,6 @@ for i, name in enumerate(students):
             typed = st.number_input("🏆 프리토킹", min_value=0, max_value=20, value=st.session_state[free_key],
                                     step=1, key=f"ft_input_{name}_{selected_idx}")
             st.session_state[free_key] = typed
-        with hc5:
-            if st.button("저장", key=f"save_pts_{name}_{selected_idx}"):
-                free_pts = st.session_state[free_key]
-                if free_pts == 0:
-                    st.warning("0점입니다.")
-                else:
-                    student_fb = find_student_by_name(full_name)
-                    if student_fb:
-                        new_total = add_points(student_fb["id"], student_fb["name"],
-                                               free_pts, f"프리토킹({free_pts}점)")
-                        # 시트 H열에도 기록
-                        wd = st.session_state.get("weekday", weekday)
-                        write_freetalk_points(wd, full_name, free_pts)
-                        st.success(f"✅ +{free_pts}점 (누적: {new_total}점)")
-                        st.session_state[free_key] = 0
-                    else:
-                        st.error(f"포인트 앱에서 '{full_name}' 학생을 찾을 수 없습니다.")
 
         # 내용 로드
         items = []
