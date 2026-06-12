@@ -2,6 +2,7 @@ import re
 import requests
 import io
 import zipfile
+from urllib.parse import quote
 from openpyxl import load_workbook
 from auth import auth_headers
 from config import SHEET_ID, DAY_SHEETS, HOMEWORK_SHEETS
@@ -218,7 +219,7 @@ def write_freetalk_points(day: str, student_name: str, points: int) -> bool:
 
     # H열 = 8번째 열
     range_notation = f"'{sheet_name}'!H{row_num}"
-    url = f"{SHEETS_API}/{SHEET_ID}/values/{requests.utils.quote(range_notation, safe='')}?valueInputOption=RAW"
+    url = f"{SHEETS_API}/{SHEET_ID}/values/{quote(range_notation, safe='')}?valueInputOption=RAW"
     resp = requests.put(
         url,
         headers={**auth_headers(), "Content-Type": "application/json"},
