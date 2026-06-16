@@ -12,37 +12,36 @@ _APP_NAME = "fluent_point"
 _db = None
 
 
+def _load_sa_info() -> dict:
+    """서비스 계정 정보 로드 (Streamlit secrets 우선, 로컬 파일 폴백)"""
+    try:
+        import streamlit as st
+        if "firebase_service_account" in st.secrets:
+            info = dict(st.secrets["firebase_service_account"])
+            info["private_key"] = info["private_key"].replace("\\n", "\n")
+            return info
+    except Exception:
+        pass
+
+    import json
+    with open(_SA_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def _get_db():
     global _db
     if _db is not None:
         return _db
 
-    # 이미 초기화된 Firebase 앱 재사용
+    # 이미 초기화된 앱 재사용 or 새로 초기화
     try:
         app = firebase_admin.get_app(_APP_NAME)
-        _db = firestore.client(app)
-        return _db
     except ValueError:
-        pass  # 앱 아직 없음
+        info = _load_sa_info()
+        cred = credentials.Certificate(info)
+        app = firebase_admin.initialize_app(cred, name=_APP_NAME)
 
-    # Streamlit Cloud secrets 시도
-    try:
-        import streamlit as st
-        sa = st.secrets.get("firebase_service_account")
-        if sa is not None:
-            info = {k: v for k, v in sa.items()}
-            info["private_key"] = info["private_key"].replace("\\n", "\n")
-            cred = credentials.Certificate(info)
-            app = firebase_admin.initialize_app(cred, name=_APP_NAME)
-            _db = firestore.client(app)
-            return _db
-    except Exception as e:
-        raise RuntimeError(f"Firebase secrets 로드 실패: {e}")
-
-    # 로컬 JSON 파일
-    cred = credentials.Certificate(_SA_FILE)
-    app = firebase_admin.initialize_app(cred, name=_APP_NAME)
-    _db = firestore.client(app)
+    _db = firestore.client(app=app)
     return _db
 
 
