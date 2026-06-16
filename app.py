@@ -160,12 +160,13 @@ if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통�
         if chk.get("부스클리닉"): reasons.append("부스&클리닉")
         if free_pts > 0: reasons.append(f"프리토킹({free_pts}점)")
 
-        new_total = add_points(student_fb["id"], full_name, total_pts, ", ".join(reasons))
-
-        if free_pts > 0:
-            write_freetalk_points(wd, full_name, free_pts)
-
-        results.append(f"✅ {full_name}: +{total_pts}점 → 누적 {new_total}점")
+        try:
+            new_total = add_points(student_fb["id"], full_name, total_pts, ", ".join(reasons))
+            if free_pts > 0:
+                write_freetalk_points(wd, full_name, free_pts)
+            results.append(f"✅ {full_name}: +{total_pts}점 → 누적 {new_total}점")
+        except Exception as e:
+            results.append(f"❌ {full_name} 오류: {type(e).__name__}: {e}")
     for r in results:
         st.write(r)
 
