@@ -72,7 +72,7 @@ def add_points(student_id: str, student_name: str, point_change: int, reason: st
         "updated_at": now,
     })
 
-    student_ref = db.collection("students").doc(student_id)
+    student_ref = db.collection("students").document(student_id)
     student_snap = student_ref.get()
     student_data = student_snap.to_dict() or {}
     new_total = (student_data.get("total_points") or 0) + point_change
