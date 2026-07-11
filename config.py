@@ -1,15 +1,20 @@
-SHEET_ID = "1b1zY-KRuOJPLeLH3lZ72RBpb8sLJyWAm0Q7KGZ4s5Y8"
-GOOGLE_API_KEY = "AIzaSyBf6NNtvfxGnRjsm3PDnSa7cb4TBnO_NAo"
+import datetime
 
-# 요일별 시트 이름
+_month = datetime.datetime.now().month
+_month_str = f"{_month}월"
+
+SHEET_ID = "1b1zY-KRuOJPLeLH3lZ72RBpb8sLJyWAm0Q7KGZ4s5Y8"
+GOOGLE_API_KEY = "AIzaSyBf•••••••••••••••••••••••••••••••"
+
+# 요일별 시트 이름 (현재 월 자동 감지)
 DAY_SHEETS = {
-    "월": "6월 월",
-    "화": "6월 화",
-    "수": "6월 수",
-    "목": "6월 목",
-    "금": "6월 금",
-    "토": "6월 토",
-    "일": "6월 일",
+    "월": f"{_month_str} 월",
+    "화": f"{_month_str} 화",
+    "수": f"{_month_str} 수",
+    "목": f"{_month_str} 목",
+    "금": f"{_month_str} 금",
+    "토": f"{_month_str} 토",
+    "일": f"{_month_str} 일",
 }
 
 # 요일별 과제 시트 이름
@@ -25,10 +30,10 @@ HOMEWORK_SHEETS = {
 
 # 문법 폴더 ID (Google Drive)
 GRAMMAR_FOLDER_IDS = {
-    "B": "1GH2niGKZmp4cur6U57JZZ5dk02Fqvf5n",  # beginner Lv 1~3
-    "P": "1OAGcZt9GdQhDNwFCaEYqyNK_YirDZ6Xu",  # preinter Lv 4~6
-    "I": "1IrrWpokT8Dqpv6w3MzVMu9zIxjbk68sn",  # inter Lv 7~9
-    "A": "1YANU_NF0xMIEjbeYxbaw64d7DgppsWbQ",  # advanced Lv 10~12
+    "B": "1GH2niGKZmp4cur6U57JZZ5dk02Fqvf5n",
+    "P": "1OAGcZt9GdQhDNwFCaEYqyNK_YirDZ6Xu",
+    "I": "1IrrWpokT8Dqpv6w3MzVMu9zIxjbk68sn",
+    "A": "1YANU_NF0xMIEjbeYxbaw64d7DgppsWbQ",
 }
 
 # ITC 교재 웹사이트
