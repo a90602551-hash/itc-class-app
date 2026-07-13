@@ -11,6 +11,9 @@ _SA_FILE = os.path.join(os.path.dirname(__file__), "firebase_service_account.jso
 _APP_NAME = "fluent_point"
 _db = None
 
+# 학생 이름 → {id, ...} 캐시 (Firestore 조회 횟수 최소화)
+_student_cache: dict[str, dict | None] = {}
+
 
 def _load_sa_info() -> dict:
     """서비스 계정 정보 로드 (Streamlit secrets 우선, 로컬 파일 폴백)"""
@@ -33,7 +36,6 @@ def _get_db():
     if _db is not None:
         return _db
 
-    # 이미 초기화된 앱 재사용 or 새로 초기화
     try:
         app = firebase_admin.get_app(_APP_NAME)
     except ValueError:
@@ -46,12 +48,19 @@ def _get_db():
 
 
 def find_student_by_name(name: str) -> dict | None:
-    """이름으로 학생 찾기 (정확 일치)"""
+    """이름으로 학생 찾기 (캐시 우선, Firestore 조회 최소화)"""
+    if name in _student_cache:
+        return _student_cache[name]
+
     db = _get_db()
     docs = db.collection("students").where("name", "==", name).limit(1).stream()
+    result = None
     for doc in docs:
-        return {"id": doc.id, **doc.to_dict()}
-    return None
+        result = {"id": doc.id, **doc.to_dict()}
+        break
+
+    _student_cache[name] = result
+    return result
 
 
 def add_points(student_id: str, student_name: str, point_change: int, reason: str, category: str = "수업포인트"):
@@ -61,6 +70,7 @@ def add_points(student_id: str, student_name: str, point_change: int, reason: st
     db = _get_db()
     now = datetime.datetime.now()
 
+    # 포인트 기록 추가
     db.collection("point_records").add({
         "student_id": student_id,
         "student_name": student_name,
@@ -72,10 +82,14 @@ def add_points(student_id: str, student_name: str, point_change: int, reason: st
         "updated_at": now,
     })
 
+    # 누적 포인트 업데이트
     student_ref = db.collection("students").document(student_id)
     student_snap = student_ref.get()
     student_data = student_snap.to_dict() or {}
     new_total = (student_data.get("total_points") or 0) + point_change
     student_ref.update({"total_points": new_total, "updated_at": now})
+
+    # 캐시 무효화 (포인트 변경됐으므로)
+    _student_cache.pop(student_name, None)
 
     return new_total
