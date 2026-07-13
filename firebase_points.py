@@ -3,9 +3,11 @@ Firebase Firestore 포인트 연동 모듈
 the-fluent-point 프로젝트와 연동
 """
 import os
+import time
 import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.api_core.exceptions import ResourceExhausted
 
 _SA_FILE = os.path.join(os.path.dirname(__file__), "firebase_service_account.json")
 _APP_NAME = "fluent_point"
@@ -47,18 +49,32 @@ def _get_db():
     return _db
 
 
+def _retry(fn, retries=3, delay=1.5):
+    """ResourceExhausted 발생 시 최대 retries번 재시도"""
+    for attempt in range(retries):
+        try:
+            return fn()
+        except ResourceExhausted:
+            if attempt < retries - 1:
+                time.sleep(delay * (attempt + 1))
+            else:
+                raise
+
+
 def find_student_by_name(name: str) -> dict | None:
     """이름으로 학생 찾기 (캐시 우선, Firestore 조회 최소화)"""
     if name in _student_cache:
         return _student_cache[name]
 
     db = _get_db()
-    docs = db.collection("students").where("name", "==", name).limit(1).stream()
-    result = None
-    for doc in docs:
-        result = {"id": doc.id, **doc.to_dict()}
-        break
 
+    def query():
+        docs = db.collection("students").where("name", "==", name).limit(1).stream()
+        for doc in docs:
+            return {"id": doc.id, **doc.to_dict()}
+        return None
+
+    result = _retry(query)
     _student_cache[name] = result
     return result
 
@@ -70,26 +86,24 @@ def add_points(student_id: str, student_name: str, point_change: int, reason: st
     db = _get_db()
     now = datetime.datetime.now()
 
-    # 포인트 기록 추가
-    db.collection("point_records").add({
-        "student_id": student_id,
-        "student_name": student_name,
-        "point_change": point_change,
-        "reason": reason,
-        "category": category,
-        "recorded_at": now,
-        "created_at": now,
-        "updated_at": now,
-    })
+    def write():
+        db.collection("point_records").add({
+            "student_id": student_id,
+            "student_name": student_name,
+            "point_change": point_change,
+            "reason": reason,
+            "category": category,
+            "recorded_at": now,
+            "created_at": now,
+            "updated_at": now,
+        })
+        student_ref = db.collection("students").document(student_id)
+        student_snap = student_ref.get()
+        student_data = student_snap.to_dict() or {}
+        new_total = (student_data.get("total_points") or 0) + point_change
+        student_ref.update({"total_points": new_total, "updated_at": now})
+        return new_total
 
-    # 누적 포인트 업데이트
-    student_ref = db.collection("students").document(student_id)
-    student_snap = student_ref.get()
-    student_data = student_snap.to_dict() or {}
-    new_total = (student_data.get("total_points") or 0) + point_change
-    student_ref.update({"total_points": new_total, "updated_at": now})
-
-    # 캐시 무효화 (포인트 변경됐으므로)
+    new_total = _retry(write)
     _student_cache.pop(student_name, None)
-
     return new_total

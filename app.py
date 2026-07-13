@@ -150,7 +150,12 @@ if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통�
             results.append(f"⬜ {full_name}: 포인트 없음")
             continue
 
-        student_fb = find_student_by_name(full_name)
+        try:
+            student_fb = find_student_by_name(full_name)
+        except Exception:
+            results.append(f"⚠️ {full_name}: 서버가 바쁩니다. 잠시 후 다시 시도해주세요.")
+            continue
+
         if not student_fb:
             results.append(f"❌ {full_name}: 포인트 앱에서 찾을 수 없음")
             continue
@@ -166,8 +171,8 @@ if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통�
             if free_pts > 0:
                 write_freetalk_points(wd, full_name, free_pts)
             results.append(f"✅ {full_name}: +{total_pts}점 → 누적 {new_total}점")
-        except Exception as e:
-            results.append(f"❌ {full_name} 오류: {type(e).__name__}: {e}")
+        except Exception:
+            results.append(f"⚠️ {full_name}: 저장 실패. 잠시 후 다시 시도해주세요.")
     for r in results:
         st.write(r)
 
