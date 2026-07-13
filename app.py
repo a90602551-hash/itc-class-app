@@ -3,6 +3,7 @@ import datetime
 from sheets import get_student_groups, get_student_progress, match_full_name, clear_cache, get_student_checks, write_freetalk_points
 from vocab import fetch_lesson_content
 from grammar import get_grammar_content
+from fluent import fetch_fluent_content
 from firebase_points import find_student_by_name, add_points
 
 st.set_page_config(page_title="ITC 수업", layout="wide")
@@ -177,9 +178,12 @@ for i, name in enumerate(students):
     with col:
         full_name = match_full_name(name, list(progress.keys())) or name
         p = progress.get(full_name, {})
+        source = p.get("source", "itc")
         level = p.get("level")
         lesson = p.get("lesson")
+        unit = p.get("unit")
         grammar_ref = p.get("grammar_ref", "")
+        is_fluent = source == "fluent"
 
         sentence_count = 2 if level == 1 else (3 if level == 2 else 5)
 
@@ -192,7 +196,9 @@ for i, name in enumerate(students):
 
         hc1, hc2, hc3, hc4 = st.columns([4, 1, 1, 1])
         with hc1:
-            if level and lesson:
+            if is_fluent and level and unit:
+                st.markdown(f"**👤 {name}** <span style='color:#4CAF50;font-size:0.85em;'>🌟 플루언트 L{level} Unit {unit} | {sentence_count}문장</span>", unsafe_allow_html=True)
+            elif level and lesson:
                 st.markdown(f"**👤 {name}** <span style='color:gray;font-size:0.85em;'>— {sentence_count}문장 | L{level} Lesson {lesson} | 문법:{grammar_ref or '없음'}</span>", unsafe_allow_html=True)
             else:
                 st.markdown(f"**👤 {name}** <span style='color:gray;font-size:0.85em;'>— 진도 없음</span>", unsafe_allow_html=True)
@@ -213,7 +219,19 @@ for i, name in enumerate(students):
         items = []
         grammar_text = ""
 
-        if level and lesson:
+        if is_fluent and level and unit:
+            # ── 플루언트 소스 ──
+            cache_key = f"fluent_L{level}_U{unit}"
+            if cache_key not in st.session_state:
+                with st.spinner(f"플루언트 L{level} Unit {unit} 로딩..."):
+                    st.session_state[cache_key] = fetch_fluent_content(level, unit)
+            fluent_content = st.session_state[cache_key]
+            display_mode = st.session_state["modes"].get(name, "words")
+            items = fluent_content.get("words" if display_mode == "words" else "expressions", [])
+            grammar_text = fluent_content.get("grammar", "")
+
+        elif not is_fluent and level and lesson:
+            # ── ITC 소스 ──
             cache_key = f"content_L{level}_L{lesson}"
             if cache_key not in st.session_state:
                 with st.spinner(f"L{level} Lesson {lesson} 로딩..."):

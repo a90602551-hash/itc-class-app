@@ -124,37 +124,50 @@ def get_student_progress(day: str) -> dict[str, dict]:
         if not name or name in ("이름", ""):
             continue
 
-        # 행 전체 텍스트에서 Level/Lesson 번호 추출 (C열뿐 아니라 모든 열 검색)
+        # 행 전체 텍스트에서 소스(ITC/플루언트) 및 번호 추출
         full_row_text = " ".join(row)
+        is_fluent = "플루언트" in full_row_text or "fluent" in full_row_text.lower()
         lesson_num = None
+        unit_num = None
         level_num = None
 
         lv_dash = re.search(r"[Ll][Vv](\d+)-(\d+)과?", full_row_text)
         if lv_dash:
             level_num = int(lv_dash.group(1))
-            lesson_num = int(lv_dash.group(2))
+            if is_fluent:
+                unit_num = int(lv_dash.group(2))
+            else:
+                lesson_num = int(lv_dash.group(2))
         else:
             level_match = re.search(r"[Ll]evel\s*(\d+)|LV\s*(\d+)|Lv\s*(\d+)|레벨\s*(\d+)", full_row_text)
             if level_match:
                 level_num = int(next(g for g in level_match.groups() if g))
-            lesson_match = re.search(r"[Ll]esson\s*(\d+)|레슨\s*(\d+)", full_row_text)
-            if lesson_match:
-                lesson_num = int(next(g for g in lesson_match.groups() if g))
 
-        # B열(Boothwork): 문법 참조 추출 (예: B4-3, P1-2)
-        grammar_match = re.search(r"문법\s*([BPIAbpia])(\d+)-?(\d*)", boothwork)
-        if grammar_match:
-            prefix = grammar_match.group(1).upper()
-            unit = grammar_match.group(2)
-            sub = grammar_match.group(3)
-            grammar_ref = f"{prefix}{unit}-{sub}" if sub else f"{prefix}{unit}"
-        else:
-            grammar_ref = None
+            if is_fluent:
+                unit_match = re.search(r"[Uu]nit\s*(\d+)|유닛\s*(\d+)", full_row_text)
+                if unit_match:
+                    unit_num = int(next(g for g in unit_match.groups() if g))
+            else:
+                lesson_match = re.search(r"[Ll]esson\s*(\d+)|레슨\s*(\d+)", full_row_text)
+                if lesson_match:
+                    lesson_num = int(next(g for g in lesson_match.groups() if g))
+
+        # B열(Boothwork): 문법 참조 추출 (ITC 전용, 예: B4-3, P1-2)
+        grammar_ref = None
+        if not is_fluent:
+            grammar_match = re.search(r"문법\s*([BPIAbpia])(\d+)-?(\d*)", boothwork)
+            if grammar_match:
+                prefix = grammar_match.group(1).upper()
+                unit = grammar_match.group(2)
+                sub = grammar_match.group(3)
+                grammar_ref = f"{prefix}{unit}-{sub}" if sub else f"{prefix}{unit}"
 
         progress[name] = {
-            "lesson": lesson_num,
+            "source": "fluent" if is_fluent else "itc",
             "level": level_num,
-            "grammar_ref": grammar_ref,
+            "lesson": lesson_num,       # ITC 전용
+            "unit": unit_num,           # 플루언트 전용
+            "grammar_ref": grammar_ref, # ITC 전용
             "homework_raw": homework,
             "boothwork_raw": boothwork,
         }
