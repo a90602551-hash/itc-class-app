@@ -124,9 +124,10 @@ def get_student_progress(day: str) -> dict[str, dict]:
         if not name or name in ("이름", ""):
             continue
 
-        # 행 전체 텍스트에서 소스(ITC/플루언트) 및 번호 추출
+        # B열(Boothwork), C열(Homework)에서만 소스 감지 (피드백 칸 오인식 방지)
+        progress_text = f"{boothwork} {homework}"
         full_row_text = " ".join(row)
-        is_fluent = "플루언트" in full_row_text or "fluent" in full_row_text.lower()
+        is_fluent = "플루언트" in progress_text or "fluent" in progress_text.lower()
         lesson_num = None
         unit_num = None
         level_num = None
