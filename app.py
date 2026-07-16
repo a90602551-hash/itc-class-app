@@ -4,7 +4,7 @@ from sheets import get_student_groups, get_student_progress, match_full_name, cl
 from vocab import fetch_lesson_content
 from grammar import get_grammar_content
 from fluent import fetch_fluent_content
-from firebase_points import find_student_by_name, add_points
+from firebase_points import find_student_by_name, add_points_bulk
 
 st.set_page_config(page_title="ITC 수업", layout="wide")
 
@@ -139,7 +139,12 @@ if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통�
     wd = st.session_state.get("weekday", weekday)
     full_names = [match_full_name(n, list(progress.keys())) or n for n in students]
     checks = get_student_checks(wd, full_names)
-    results = []
+
+    # 1단계: 학생 조회 및 포인트 계산
+    entries = []
+    skipped = []
+    freetalk_to_write = []
+
     for name, full_name in zip(students, full_names):
         chk = checks.get(full_name, {})
         check_pts = int(chk.get("과제완수", False)) + int(chk.get("레슨통과", False)) + int(chk.get("부스클리닉", False))
@@ -147,17 +152,17 @@ if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통�
         total_pts = check_pts + free_pts
 
         if total_pts == 0:
-            results.append(f"⬜ {full_name}: 포인트 없음")
+            skipped.append(f"⬜ {full_name}: 포인트 없음")
             continue
 
         try:
             student_fb = find_student_by_name(full_name)
         except Exception:
-            results.append(f"⚠️ {full_name}: 서버가 바쁩니다. 잠시 후 다시 시도해주세요.")
+            skipped.append(f"⚠️ {full_name}: 서버가 바쁩니다. 잠시 후 다시 시도해주세요.")
             continue
 
         if not student_fb:
-            results.append(f"❌ {full_name}: 포인트 앱에서 찾을 수 없음")
+            skipped.append(f"❌ {full_name}: 포인트 앱에서 찾을 수 없음")
             continue
 
         reasons = []
@@ -166,13 +171,29 @@ if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통�
         if chk.get("부스클리닉"): reasons.append("부스&클리닉")
         if free_pts > 0: reasons.append(f"프리토킹({free_pts}점)")
 
+        entries.append({
+            "student_id": student_fb["id"],
+            "student_name": full_name,
+            "point_change": total_pts,
+            "reason": ", ".join(reasons),
+        })
+        if free_pts > 0:
+            freetalk_to_write.append((full_name, free_pts))
+
+    # 2단계: 한 번의 batch write로 전체 처리
+    results = list(skipped)
+    if entries:
         try:
-            new_total = add_points(student_fb["id"], full_name, total_pts, ", ".join(reasons))
-            if free_pts > 0:
+            totals = add_points_bulk(entries)
+            for e in entries:
+                sname = e["student_name"]
+                results.append(f"✅ {sname}: +{e['point_change']}점 → 누적 {totals.get(sname, '?')}점")
+            for full_name, free_pts in freetalk_to_write:
                 write_freetalk_points(wd, full_name, free_pts)
-            results.append(f"✅ {full_name}: +{total_pts}점 → 누적 {new_total}점")
         except Exception:
-            results.append(f"⚠️ {full_name}: 저장 실패. 잠시 후 다시 시도해주세요.")
+            for e in entries:
+                results.append(f"⚠️ {e['student_name']}: 저장 실패. 잠시 후 다시 시도해주세요.")
+
     for r in results:
         st.write(r)
 
