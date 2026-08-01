@@ -211,6 +211,75 @@ def get_student_checks(day: str, student_names: list[str]) -> dict[str, dict]:
     return result
 
 
+def _find_student_row(sheet_name: str, student_name: str) -> int | None:
+    """시트에서 학생 행 번호 반환 (1-based). 없으면 None."""
+    rows = _fetch_sheet_data(sheet_name)
+    for idx, row in enumerate(rows):
+        if row and row[0].strip() == student_name:
+            return idx + 1
+    return None
+
+
+def _write_cell(sheet_name: str, row_num: int, col_letter: str, value) -> bool:
+    """시트의 특정 셀에 값 쓰기."""
+    range_notation = f"'{sheet_name}'!{col_letter}{row_num}"
+    url = f"{SHEETS_API}/{SHEET_ID}/values/{quote(range_notation, safe='')}?valueInputOption=RAW"
+    resp = requests.put(
+        url,
+        headers={**auth_headers(), "Content-Type": "application/json"},
+        json={"values": [[value]]}
+    )
+    return resp.status_code == 200
+
+
+def write_lesson_check(day: str, student_name: str, field: str, value: bool) -> bool:
+    """
+    레슨통과(G열) 또는 부스클리닉(I열) 체크값을 시트에 기록.
+    field: "레슨통과" | "부스클리닉"
+    """
+    sheet_name = HOMEWORK_SHEETS.get(day)
+    if not sheet_name:
+        return False
+    col = "G" if field == "레슨통과" else "I"
+    row_num = _find_student_row(sheet_name, student_name)
+    if not row_num:
+        return False
+    return _write_cell(sheet_name, row_num, col, value)
+
+
+def advance_student_lesson(day: str, student_name: str, is_fluent: bool) -> bool:
+    """
+    시트 B열(Boothwork)과 C열(Homework)에서 레슨/유닛 번호를 +1로 업데이트.
+    """
+    sheet_name = HOMEWORK_SHEETS.get(day)
+    if not sheet_name:
+        return False
+    row_num = _find_student_row(sheet_name, student_name)
+    if not row_num:
+        return False
+
+    rows = _fetch_sheet_data(sheet_name)
+    row = rows[row_num - 1]
+    boothwork = row[1] if len(row) > 1 else ""
+    homework  = row[2] if len(row) > 2 else ""
+
+    def increment_num(text: str, pattern: str) -> str:
+        def replacer(m):
+            return m.group(1) + str(int(m.group(2)) + 1)
+        return re.sub(pattern, replacer, text)
+
+    if is_fluent:
+        new_bw = increment_num(boothwork, r'([Uu]nit\s*)(\d+)')
+        new_hw = increment_num(homework,  r'([Uu]nit\s*)(\d+)')
+    else:
+        new_bw = increment_num(boothwork, r'([Ll]esson\s*)(\d+)')
+        new_hw = increment_num(homework,  r'([Ll]esson\s*)(\d+)')
+
+    ok1 = _write_cell(sheet_name, row_num, "B", new_bw)
+    ok2 = _write_cell(sheet_name, row_num, "C", new_hw)
+    return ok1 and ok2
+
+
 def write_freetalk_points(day: str, student_name: str, points: int) -> bool:
     """
     해당 요일 과제 탭의 H열(프리토킹)에 점수 기록.

@@ -20,15 +20,15 @@ def fetch_fluent_content(level: int, unit: int) -> dict:
         resp.raise_for_status()
         data = resp.json()
         return {
-            "title":       data.get("title", ""),
-            "words":       data.get("words", []),
-            "expressions": data.get("expressions", []),
-            "grammar":     data.get("grammar", ""),
+            "title":        data.get("title", ""),
+            "words":        data.get("words", []),
+            "expressions":  data.get("expressions", []),
+            "grammarTitle": data.get("grammarTitle", ""),
         }
     except Exception as e:
         return {
-            "title":       "",
-            "words":       [],
-            "expressions": [],
-            "grammar":     f"[The Fluent 연동 오류: {e}]",
+            "title":        "",
+            "words":        [],
+            "expressions":  [],
+            "grammarTitle": f"[연동 오류: {e}]",
         }

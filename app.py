@@ -1,6 +1,6 @@
 import streamlit as st
 import datetime
-from sheets import get_student_groups, get_student_progress, match_full_name, clear_cache, get_student_checks, write_freetalk_points
+from sheets import get_student_groups, get_student_progress, match_full_name, clear_cache, get_student_checks, write_freetalk_points, write_lesson_check, advance_student_lesson
 from vocab import fetch_lesson_content
 from grammar import get_grammar_content
 from fluent import fetch_fluent_content
@@ -70,6 +70,14 @@ if "removed" not in st.session_state:
     st.session_state["removed"] = {}
 if "modes" not in st.session_state:
     st.session_state["modes"] = {}
+if "checks" not in st.session_state:
+    # 모든 그룹 학생 체크 상태 미리 로드
+    all_full_names = list({
+        match_full_name(n, list(progress.keys())) or n
+        for g in groups for n in g["students"][:4]
+    })
+    wd_init = st.session_state.get("weekday", "월")
+    st.session_state["checks"] = get_student_checks(wd_init, all_full_names)
 
 st.markdown("---")
 
@@ -210,16 +218,27 @@ for i, name in enumerate(students):
         unit = p.get("unit")
         grammar_ref = p.get("grammar_ref", "")
         is_fluent = source == "fluent"
+        is_manual = "[수동]" in p.get("boothwork_raw", "")
 
         sentence_count = 2 if level == 1 else (3 if level == 2 else 5)
+        wd = st.session_state.get("weekday", weekday)
+
+        # ── 체크 상태 (과제완수는 시트에서, 나머지는 앱 상태) ──
+        checks = st.session_state.get("checks", {})
+        hw_done = checks.get(full_name, {}).get("과제완수", False)
+        ls_key  = f"ls_{name}_{selected_idx}"
+        cl_key  = f"cl_{name}_{selected_idx}"
+        if ls_key not in st.session_state:
+            st.session_state[ls_key] = checks.get(full_name, {}).get("레슨통과", False)
+        if cl_key not in st.session_state:
+            st.session_state[cl_key] = checks.get(full_name, {}).get("부스클리닉", False)
 
         current_mode = st.session_state["modes"].get(name, "words")
-
-        # 이름 + 문장수 + 단어/표현 토글 + 프리토킹 한 줄에
         free_key = f"ft_{name}_{selected_idx}"
         if free_key not in st.session_state:
             st.session_state[free_key] = 0
 
+        # ── 헤더: 이름 + 진도 정보 ──
         hc1, hc2, hc3, hc4 = st.columns([4, 1, 1, 1])
         with hc1:
             if is_fluent and level and unit:
@@ -241,12 +260,51 @@ for i, name in enumerate(students):
                                     step=1, key=f"ft_input_{name}_{selected_idx}")
             st.session_state[free_key] = typed
 
-        # 내용 로드
+        # ── 체크 UI: 과제완수(읽기전용) + 레슨통과 + 부스클리닉 ──
+        cc1, cc2, cc3 = st.columns(3)
+        with cc1:
+            st.checkbox("✅ 과제완수", value=hw_done, disabled=True, key=f"hw_{name}_{selected_idx}")
+        with cc2:
+            new_ls = st.checkbox("🎯 레슨통과", value=st.session_state[ls_key], key=f"ls_cb_{name}_{selected_idx}")
+            if new_ls != st.session_state[ls_key]:
+                st.session_state[ls_key] = new_ls
+                write_lesson_check(wd, full_name, "레슨통과", new_ls)
+                st.rerun()
+        with cc3:
+            new_cl = st.checkbox("🏥 부스클리닉", value=st.session_state[cl_key], key=f"cl_cb_{name}_{selected_idx}")
+            if new_cl != st.session_state[cl_key]:
+                st.session_state[cl_key] = new_cl
+                write_lesson_check(wd, full_name, "부스클리닉", new_cl)
+                st.rerun()
+
+        # ── 자동 진급 / 수동 리마인더 ──
+        all_checked = hw_done and st.session_state[ls_key] and st.session_state[cl_key]
+        if all_checked:
+            if is_manual:
+                st.warning(f"🔔 {full_name} — 수동 업데이트 필요 (시트에서 직접 진급 처리해 주세요)")
+            else:
+                adv_key = f"advanced_{name}_{selected_idx}"
+                if not st.session_state.get(adv_key):
+                    ok = advance_student_lesson(wd, full_name, is_fluent)
+                    if ok:
+                        st.session_state[adv_key] = True
+                        next_num = (unit or 0) + 1 if is_fluent else (lesson or 0) + 1
+                        label = f"Unit {next_num}" if is_fluent else f"Lesson {next_num}"
+                        st.success(f"✅ {full_name} → {label}로 자동 진급 완료!")
+                    else:
+                        st.error(f"❌ {full_name} 진급 업데이트 실패 — 시트를 확인해 주세요")
+                else:
+                    next_num = (unit or 0) + 1 if is_fluent else (lesson or 0) + 1
+                    label = f"Unit {next_num}" if is_fluent else f"Lesson {next_num}"
+                    st.success(f"✅ {full_name} → {label}로 자동 진급 완료!")
+
+        # ── 내용 로드 ──
         items = []
+        all_items = []   # 풀 고갈 시 이전 레슨 복습용 전체 풀
         grammar_text = ""
+        grammar_title = ""
 
         if is_fluent and level and unit:
-            # ── 플루언트 소스 ──
             cache_key = f"fluent_L{level}_U{unit}"
             if cache_key not in st.session_state:
                 with st.spinner(f"플루언트 L{level} Unit {unit} 로딩..."):
@@ -254,10 +312,9 @@ for i, name in enumerate(students):
             fluent_content = st.session_state[cache_key]
             display_mode = st.session_state["modes"].get(name, "words")
             items = fluent_content.get("words" if display_mode == "words" else "expressions", [])
-            grammar_text = fluent_content.get("grammar", "")
+            grammar_title = fluent_content.get("grammarTitle", "")
 
         elif not is_fluent and level and lesson:
-            # ── ITC 소스 ──
             cache_key = f"content_L{level}_L{lesson}"
             if cache_key not in st.session_state:
                 with st.spinner(f"L{level} Lesson {lesson} 로딩..."):
@@ -276,31 +333,64 @@ for i, name in enumerate(students):
                             st.session_state[grammar_cache_key] = cached
                 grammar_text = cached
 
-        # 단어 표시: 3개씩 보여주고 클릭 시 사라짐 / 교체 버튼으로 풀에서 다음 단어 가져오기
+        # ── 단어 풀 표시 ──
         if items:
             display_mode = st.session_state["modes"].get(name, "words")
             shown_key = f"shown_{name}_{selected_idx}_{display_mode}"
-            pool_key = f"pool_{name}_{selected_idx}_{display_mode}"
+            pool_key  = f"pool_{name}_{selected_idx}_{display_mode}"
+            base_key  = f"base_{name}_{selected_idx}_{display_mode}"  # 전체 단어 원본 저장
 
-            # 초기화: 처음 3개 표시, 나머지는 풀로 (단어/표현 각각 독립)
             if shown_key not in st.session_state:
                 words_clean = [item.split("(")[0].split("-")[0].strip() for item in items]
+                st.session_state[base_key]  = list(words_clean)
                 st.session_state[shown_key] = list(range(min(3, len(words_clean))))
-                st.session_state[pool_key] = list(range(3, len(words_clean)))
+                st.session_state[pool_key]  = list(range(3, len(words_clean)))
 
-            shown = st.session_state[shown_key]
-            pool = st.session_state[pool_key]
-            words_clean = [item.split("(")[0].split("-")[0].strip() for item in items]
+            shown      = st.session_state[shown_key]
+            pool       = st.session_state[pool_key]
+            words_all  = st.session_state[base_key]
 
             remaining = len(pool)
             if remaining:
                 st.markdown(f"<span style='color:gray;font-size:0.78em;'>+{remaining}개 남음</span>", unsafe_allow_html=True)
 
-            # 단어: 큰 텍스트 + 작은 ✕ 🔄 버튼
+            # 이전 레슨 복습 버튼 (풀 소진 시)
+            if not pool:
+                prev_offset_key = f"prev_offset_{name}_{selected_idx}_{display_mode}"
+                cur_offset = st.session_state.get(prev_offset_key, 0)
+                if is_fluent:
+                    prev_ref = unit - 1 - cur_offset if unit else None
+                    prev_label = f"Unit {prev_ref}" if prev_ref and prev_ref > 0 else None
+                else:
+                    prev_ref = lesson - 1 - cur_offset if lesson else None
+                    prev_label = f"Lesson {prev_ref}" if prev_ref and prev_ref > 0 else None
+
+                if prev_label:
+                    if st.button(f"📚 이전 {prev_label} 복습 단어 추가", key=f"prev_{name}_{selected_idx}_{cur_offset}"):
+                        if is_fluent:
+                            pk = f"fluent_L{level}_U{prev_ref}"
+                            if pk not in st.session_state:
+                                st.session_state[pk] = fetch_fluent_content(level, prev_ref)
+                            prev_items = st.session_state[pk].get("words" if display_mode == "words" else "expressions", [])
+                        else:
+                            pk = f"content_L{level}_L{prev_ref}"
+                            if pk not in st.session_state:
+                                st.session_state[pk] = fetch_lesson_content(level, prev_ref)
+                            prev_items = st.session_state[pk].get("words" if display_mode == "words" else "expressions", [])
+
+                        prev_words = [w.split("(")[0].split("-")[0].strip() for w in prev_items]
+                        offset = len(words_all)
+                        words_all.extend(prev_words)
+                        st.session_state[base_key] = words_all
+                        pool.extend(range(offset, len(words_all)))
+                        st.session_state[pool_key] = pool
+                        st.session_state[prev_offset_key] = cur_offset + 1
+                        st.rerun()
+
             word_cols = st.columns(3)
             for slot, word_idx in enumerate(list(shown)):
                 with word_cols[slot]:
-                    st.markdown(f"<div style='font-size:1.7em;font-weight:bold;text-align:center;padding:8px 0 4px 0;line-height:1.3;'>{words_clean[word_idx]}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:1.7em;font-weight:bold;text-align:center;padding:8px 0 4px 0;line-height:1.3;'>{words_all[word_idx]}</div>", unsafe_allow_html=True)
                     btn_c1, btn_c2 = st.columns(2)
                     with btn_c1:
                         if st.button("✕ 지우기", key=f"del_{name}_{selected_idx}_{slot}"):
@@ -315,8 +405,12 @@ for i, name in enumerate(students):
                             st.session_state[pool_key] = pool
                             st.rerun()
 
-        # 문법 항목 (편집 가능한 텍스트박스)
-        if grammar_text:
+        # ── 문법 표시 ──
+        if grammar_title:
+            # 플루언트: 주제명만 표시
+            st.markdown(f"<div style='background:#E8F5E9;border-radius:8px;padding:6px 12px;font-size:1em;font-weight:bold;color:#2E7D32;margin-top:4px;'>📐 문법: {grammar_title}</div>", unsafe_allow_html=True)
+        elif grammar_text:
+            # ITC: 기존 텍스트 영역
             grammar_edit_key = f"grammar_edit_{name}_{selected_idx}"
             if grammar_edit_key not in st.session_state:
                 st.session_state[grammar_edit_key] = grammar_text
@@ -327,6 +421,5 @@ for i, name in enumerate(students):
                 key=f"grammar_box_{name}_{selected_idx}",
                 label_visibility="collapsed"
             )
-
 
         st.markdown("")
