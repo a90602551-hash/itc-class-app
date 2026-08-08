@@ -4,7 +4,7 @@ from sheets import get_student_groups, get_student_progress, match_full_name, cl
 from vocab import fetch_lesson_content
 from grammar import get_grammar_content
 from fluent import fetch_fluent_content
-from firebase_points import find_student_by_name, add_points_bulk
+from supabase_points import find_student_by_name, add_points_bulk
 
 st.set_page_config(page_title="ITC 수업", layout="wide")
 
