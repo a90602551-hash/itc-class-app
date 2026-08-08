@@ -4,7 +4,7 @@
 - Streamlit Cloud: st.secrets 사용
 """
 import os
-import json
+import datetime
 import google.auth.transport.requests
 from google.oauth2 import service_account
 
@@ -14,23 +14,30 @@ _SCOPES = [
     "https://www.googleapis.com/auth/drive.readonly",
 ]
 
+_creds = None
+
 
 def get_credentials():
-    # Streamlit Cloud: secrets에서 읽기
+    global _creds
+    # 만료 5분 전까지는 기존 토큰 재사용
+    if _creds is not None and _creds.expiry:
+        remaining = (_creds.expiry - datetime.datetime.utcnow()).total_seconds()
+        if remaining > 300:
+            return _creds
+
     try:
         import streamlit as st
         if "gcp_service_account" in st.secrets:
             info = dict(st.secrets["gcp_service_account"])
-            creds = service_account.Credentials.from_service_account_info(info, scopes=_SCOPES)
-            creds.refresh(google.auth.transport.requests.Request())
-            return creds
+            _creds = service_account.Credentials.from_service_account_info(info, scopes=_SCOPES)
+            _creds.refresh(google.auth.transport.requests.Request())
+            return _creds
     except Exception:
         pass
 
-    # 로컬: JSON 파일에서 읽기
-    creds = service_account.Credentials.from_service_account_file(_SA_FILE, scopes=_SCOPES)
-    creds.refresh(google.auth.transport.requests.Request())
-    return creds
+    _creds = service_account.Credentials.from_service_account_file(_SA_FILE, scopes=_SCOPES)
+    _creds.refresh(google.auth.transport.requests.Request())
+    return _creds
 
 
 def get_token() -> str:

@@ -10,6 +10,7 @@ from config import SHEET_ID, DAY_SHEETS, HOMEWORK_SHEETS
 SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets"
 
 _xlsx_cache: bytes | None = None
+_sheet_data_cache: dict[str, list[list[str]]] = {}
 
 
 def match_full_name(short_name: str, full_names: list[str]) -> str | None:
@@ -23,6 +24,8 @@ def match_full_name(short_name: str, full_names: list[str]) -> str | None:
 def _get_xlsx(force_refresh: bool = False) -> bytes:
     global _xlsx_cache
     if _xlsx_cache is None or force_refresh:
+        if force_refresh:
+            _sheet_data_cache.clear()
         url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=xlsx"
         resp = requests.get(url, headers=auth_headers(), allow_redirects=True)
         resp.raise_for_status()
@@ -33,9 +36,12 @@ def _get_xlsx(force_refresh: bool = False) -> bytes:
 def clear_cache():
     global _xlsx_cache
     _xlsx_cache = None
+    _sheet_data_cache.clear()
 
 
 def _fetch_sheet_data(sheet_name: str) -> list[list[str]]:
+    if sheet_name in _sheet_data_cache:
+        return _sheet_data_cache[sheet_name]
     xlsx_bytes = _get_xlsx()
     wb = load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
     if sheet_name not in wb.sheetnames:
@@ -44,6 +50,7 @@ def _fetch_sheet_data(sheet_name: str) -> list[list[str]]:
     rows = []
     for row in ws.iter_rows(values_only=True):
         rows.append([str(cell) if cell is not None else "" for cell in row])
+    _sheet_data_cache[sheet_name] = rows
     return rows
 
 
@@ -185,8 +192,7 @@ def get_student_checks(day: str, student_names: list[str]) -> dict[str, dict]:
     sheet_name = HOMEWORK_SHEETS.get(day)
     if not sheet_name:
         return {}
-    # 체크 항목은 실시간 반영이 필요하므로 캐시 무시하고 새로 가져옴
-    xlsx_bytes = _get_xlsx(force_refresh=True)
+    xlsx_bytes = _get_xlsx()
     wb = load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
     if sheet_name not in wb.sheetnames:
         return {}
