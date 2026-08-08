@@ -10,7 +10,7 @@ from google.oauth2 import service_account
 
 _SA_FILE = os.path.join(os.path.dirname(__file__), "service_account.json")
 _SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive.readonly",
 ]
 
