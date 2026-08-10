@@ -166,7 +166,8 @@ if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통�
         try:
             student_fb = find_student_by_name(full_name)
         except Exception as e:
-            skipped.append(f"⚠️ {full_name}: 오류 — {e}")
+            import traceback
+            skipped.append(f"⚠️ {full_name}: {traceback.format_exc()}")
             continue
 
         if not student_fb:
