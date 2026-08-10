@@ -234,6 +234,13 @@ for i, name in enumerate(students):
         if cl_key not in st.session_state:
             st.session_state[cl_key] = checks.get(full_name, {}).get("부스클리닉", False)
 
+        # 진급 직후 체크박스 상태 초기화 (위젯 생성 전, 즉 이 시점에서 처리해야 함)
+        if st.session_state.pop(f"reset_after_adv_{name}_{selected_idx}", False):
+            st.session_state[ls_key] = False
+            st.session_state[cl_key] = False
+            st.session_state.pop(f"ls_cb_{name}_{selected_idx}", None)
+            st.session_state.pop(f"cl_cb_{name}_{selected_idx}", None)
+
         current_mode = st.session_state["modes"].get(name, "words")
         free_key = f"ft_{name}_{selected_idx}"
         if free_key not in st.session_state:
@@ -278,26 +285,29 @@ for i, name in enumerate(students):
                 write_lesson_check(wd, full_name, "부스클리닉", new_cl)
                 st.rerun()
 
-        # ── 자동 진급 / 수동 리마인더 ──
+        # ── 진급 (확인 후 버튼) / 수동 리마인더 ──
         all_checked = hw_done and st.session_state[ls_key] and st.session_state[cl_key]
         if all_checked:
             if is_manual:
                 st.warning(f"🔔 {full_name} — 수동 업데이트 필요 (시트에서 직접 진급 처리해 주세요)")
             else:
-                adv_key = f"advanced_{name}_{selected_idx}"
-                if not st.session_state.get(adv_key):
-                    ok = advance_student_lesson(wd, full_name, is_fluent)
-                    if ok:
-                        st.session_state[adv_key] = True
-                        next_num = (unit or 0) + 1 if is_fluent else (lesson or 0) + 1
-                        label = f"Unit {next_num}" if is_fluent else f"Lesson {next_num}"
-                        st.success(f"✅ {full_name} → {label}로 자동 진급 완료!")
+                next_num = (unit or 0) + 1 if is_fluent else (lesson or 0) + 1
+                label = f"Unit {next_num}" if is_fluent else f"Lesson {next_num}"
+                if st.button(
+                    f"➡️ {label}로 진급",
+                    key=f"adv_btn_{name}_{selected_idx}",
+                    type="primary",
+                    help="확인 후 누르면 진급됩니다. 진급 시 레슨통과·부스클리닉 체크가 자동 해제돼 재접속해도 중복 진급되지 않습니다.",
+                ):
+                    if advance_student_lesson(wd, full_name, is_fluent):
+                        # 진급 성공 → 시트의 레슨통과/부스클리닉 해제 (재접속 중복 진급 방지)
+                        write_lesson_check(wd, full_name, "레슨통과", False)
+                        write_lesson_check(wd, full_name, "부스클리닉", False)
+                        st.session_state[f"reset_after_adv_{name}_{selected_idx}"] = True
+                        st.toast(f"✅ {full_name} → {label} 진급 완료! (체크 자동 해제)", icon="🎉")
+                        st.rerun()
                     else:
                         st.error(f"❌ {full_name} 진급 업데이트 실패 — 시트를 확인해 주세요")
-                else:
-                    next_num = (unit or 0) + 1 if is_fluent else (lesson or 0) + 1
-                    label = f"Unit {next_num}" if is_fluent else f"Lesson {next_num}"
-                    st.success(f"✅ {full_name} → {label}로 자동 진급 완료!")
 
         # ── 내용 로드 ──
         items = []

@@ -5,3 +5,4 @@ __pycache__/
 .env
 *.bat
 launcher.pyw
+.streamlit/secrets.toml
