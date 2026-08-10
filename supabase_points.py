@@ -9,11 +9,13 @@ import streamlit as st
 
 
 def _headers() -> dict:
-    key = st.secrets["supabase"]["key"]
+    # 비ASCII 문자 제거 (복붙 시 숨은 유니코드 방지)
+    raw = st.secrets["supabase"]["key"]
+    key = raw.encode("ascii", errors="ignore").decode("ascii").strip()
     return {
         "apikey": key,
         "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json; charset=utf-8",
+        "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
 
