@@ -2,44 +2,28 @@
 Supabase 포인트 연동 모듈 (Firebase 대체)
 """
 import datetime
+import streamlit as st
 from supabase import create_client, Client
 
-_client: Client | None = None
 
-
+@st.cache_resource
 def _get_client() -> Client:
-    global _client
-    if _client is not None:
-        return _client
-
-    import streamlit as st
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
-    _client = create_client(url, key)
-    return _client
-
-
-# 학생 이름 → 레코드 캐시
-_student_cache: dict[str, dict | None] = {}
+    return create_client(url, key)
 
 
 def find_student_by_name(name: str) -> dict | None:
     """이름으로 학생 찾기. 없으면 자동 생성."""
-    if name in _student_cache:
-        return _student_cache[name]
-
     db = _get_client()
     res = db.table("point_students").select("*").eq("name", name).limit(1).execute()
 
     if res.data:
-        result = res.data[0]
-    else:
-        # 없으면 자동 생성
-        ins = db.table("point_students").insert({"name": name, "total_points": 0}).execute()
-        result = ins.data[0] if ins.data else None
+        return res.data[0]
 
-    _student_cache[name] = result
-    return result
+    # 없으면 자동 생성
+    ins = db.table("point_students").insert({"name": name, "total_points": 0}).execute()
+    return ins.data[0] if ins.data else None
 
 
 def add_points_bulk(entries: list[dict]) -> dict[str, int]:
@@ -82,7 +66,6 @@ def add_points_bulk(entries: list[dict]) -> dict[str, int]:
             "updated_at": now,
         }).eq("id", sid).execute()
 
-        _student_cache.pop(sname, None)
         results[sname] = new_total
 
     return results
