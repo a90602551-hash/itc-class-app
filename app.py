@@ -42,7 +42,7 @@ with col_btn2:
 
 if refresh_btn:
     clear_cache()
-    for key in ["groups", "progress", "weekday", "modes"]:
+    for key in ["groups", "progress", "weekday", "modes", "checks"]:
         st.session_state.pop(key, None)
 
 if load_btn or refresh_btn:
