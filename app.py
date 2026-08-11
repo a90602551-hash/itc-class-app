@@ -44,6 +44,11 @@ if refresh_btn:
     clear_cache()
     for key in ["groups", "progress", "weekday", "modes", "checks"]:
         st.session_state.pop(key, None)
+    # 체크 관련 위젯/상태 캐시까지 제거 → 시트값으로 완전히 재동기화
+    # (안 지우면 disabled 체크박스가 옛 값에 얼어붙어 시트 변경이 화면에 반영 안 됨)
+    for k in list(st.session_state.keys()):
+        if k.startswith(("ls_", "cl_", "hw_")):
+            st.session_state.pop(k, None)
 
 if load_btn or refresh_btn:
     with st.spinner("구글 시트에서 데이터 불러오는 중..."):
