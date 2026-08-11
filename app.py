@@ -326,6 +326,7 @@ for i, name in enumerate(students):
         all_items = []   # 풀 고갈 시 이전 레슨 복습용 전체 풀
         grammar_text = ""
         grammar_title = ""
+        content_obj = {}   # 현재 레슨/유닛의 words+expressions 원본 (두 모드 소진 판단용)
 
         if is_fluent and level and unit:
             cache_key = f"fluent_L{level}_U{unit}"
@@ -333,6 +334,7 @@ for i, name in enumerate(students):
                 with st.spinner(f"플루언트 L{level} Unit {unit} 로딩..."):
                     st.session_state[cache_key] = fetch_fluent_content(level, unit)
             fluent_content = st.session_state[cache_key]
+            content_obj = fluent_content
             display_mode = st.session_state["modes"].get(name, "words")
             items = fluent_content.get("words" if display_mode == "words" else "expressions", [])
             grammar_title = fluent_content.get("grammarTitle", "")
@@ -343,6 +345,7 @@ for i, name in enumerate(students):
                 with st.spinner(f"L{level} Lesson {lesson} 로딩..."):
                     st.session_state[cache_key] = fetch_lesson_content(level, lesson)
             lesson_content = st.session_state[cache_key]
+            content_obj = lesson_content
             display_mode = st.session_state["modes"].get(name, "words")
             items = lesson_content.get("words" if display_mode == "words" else "expressions", [])
 
@@ -385,8 +388,23 @@ for i, name in enumerate(students):
             if remaining:
                 st.markdown(f"<span style='color:gray;font-size:0.78em;'>+{remaining}개 남음</span>", unsafe_allow_html=True)
 
-            # 이전 레슨 복습 버튼 (풀 소진 시)
-            if not pool:
+            # 이전 레슨 복습 버튼 — 단어·표현 두 풀이 모두 소진됐을 때만 노출
+            def _mode_done(m):
+                full = content_obj.get("words" if m == "words" else "expressions", [])
+                if not full:
+                    return True  # 그 모드에 항목이 없으면 소진으로 간주
+                _pk = f"pool_{name}_{selected_idx}_{m}"
+                if _pk not in st.session_state:
+                    return False  # 항목 있는데 아직 시작 안 함
+                return not st.session_state[_pk]  # 풀 비면 소진
+
+            both_done = _mode_done("words") and _mode_done("expressions")
+
+            if not pool and not both_done:
+                _other = "표현" if display_mode == "words" else "단어"
+                st.markdown(f"<span style='color:#bbb;font-size:0.75em;'>🔀 {_other}까지 다 쓰면 복습 버튼이 나와요</span>", unsafe_allow_html=True)
+
+            if both_done:
                 prev_offset_key = f"prev_offset_{name}_{selected_idx}_{display_mode}"
                 cur_offset = st.session_state.get(prev_offset_key, 0)
                 if is_fluent:
