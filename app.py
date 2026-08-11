@@ -405,7 +405,7 @@ for i, name in enumerate(students):
                 st.markdown(f"<span style='color:#bbb;font-size:0.75em;'>🔀 {_other}까지 다 쓰면 복습 버튼이 나와요</span>", unsafe_allow_html=True)
 
             if both_done:
-                prev_offset_key = f"prev_offset_{name}_{selected_idx}_{display_mode}"
+                prev_offset_key = f"prev_offset_{name}_{selected_idx}"   # 단어·표현 공유 카운터
                 cur_offset = st.session_state.get(prev_offset_key, 0)
                 if is_fluent:
                     prev_ref = unit - 1 - cur_offset if unit else None
@@ -415,24 +415,39 @@ for i, name in enumerate(students):
                     prev_label = f"Lesson {prev_ref}" if prev_ref and prev_ref > 0 else None
 
                 if prev_label:
-                    if st.button(f"📚 이전 {prev_label} 복습 단어 추가", key=f"prev_{name}_{selected_idx}_{cur_offset}"):
+                    if st.button(f"📚 이전 {prev_label} 복습 추가 (단어+표현)", key=f"prev_{name}_{selected_idx}_{cur_offset}"):
+                        # 이전 레슨/유닛 콘텐츠 로드
                         if is_fluent:
                             pk = f"fluent_L{level}_U{prev_ref}"
                             if pk not in st.session_state:
                                 st.session_state[pk] = fetch_fluent_content(level, prev_ref)
-                            prev_items = st.session_state[pk].get("words" if display_mode == "words" else "expressions", [])
                         else:
                             pk = f"content_L{level}_L{prev_ref}"
                             if pk not in st.session_state:
                                 st.session_state[pk] = fetch_lesson_content(level, prev_ref)
-                            prev_items = st.session_state[pk].get("words" if display_mode == "words" else "expressions", [])
+                        prev_content = st.session_state[pk]
 
-                        prev_words = [w.split("(")[0].split("-")[0].strip() for w in prev_items]
-                        offset = len(words_all)
-                        words_all.extend(prev_words)
-                        st.session_state[base_key] = words_all
-                        pool.extend(range(offset, len(words_all)))
-                        st.session_state[pool_key] = pool
+                        # 단어·표현 두 모드 풀에 모두 이전 레슨 항목 추가
+                        for _m in ("words", "expressions"):
+                            _prev_items = prev_content.get(_m, [])
+                            if not _prev_items:
+                                continue
+                            _prev_words = [w.split("(")[0].split("-")[0].strip() for w in _prev_items]
+                            _base  = f"base_{name}_{selected_idx}_{_m}"
+                            _pool  = f"pool_{name}_{selected_idx}_{_m}"
+                            _shown = f"shown_{name}_{selected_idx}_{_m}"
+                            if _base not in st.session_state:   # 아직 초기화 안 된 모드면 빈 상태로 시작
+                                st.session_state[_base]  = []
+                                st.session_state[_shown] = []
+                                st.session_state[_pool]  = []
+                            _base_list = st.session_state[_base]
+                            _off = len(_base_list)
+                            _base_list.extend(_prev_words)
+                            st.session_state[_base] = _base_list
+                            _pool_list = st.session_state[_pool]
+                            _pool_list.extend(range(_off, len(_base_list)))
+                            st.session_state[_pool] = _pool_list
+
                         st.session_state[prev_offset_key] = cur_offset + 1
                         st.rerun()
 
