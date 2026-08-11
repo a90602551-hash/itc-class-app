@@ -276,7 +276,14 @@ for i, name in enumerate(students):
         # ── 체크 UI: 과제완수(읽기전용) + 레슨통과 + 부스클리닉 ──
         cc1, cc2, cc3 = st.columns(3)
         with cc1:
-            st.checkbox("✅ 과제완수", value=hw_done, disabled=True, key=f"hw_{name}_{selected_idx}")
+            # 과제완수는 읽기전용(시트값). 위젯 대신 정적 표시 → 위젯 상태 얼어붙음 방지.
+            _hw_icon = "✅" if hw_done else "⬜"
+            _hw_color = "#111" if hw_done else "#999"
+            st.markdown(
+                f"<div style='padding:5px 0;color:{_hw_color};'>{_hw_icon} 과제완수 "
+                f"<span style='color:#aaa;font-size:0.72em;'>(시트)</span></div>",
+                unsafe_allow_html=True,
+            )
         with cc2:
             new_ls = st.checkbox("🎯 레슨통과", value=st.session_state[ls_key], key=f"ls_cb_{name}_{selected_idx}")
             if new_ls != st.session_state[ls_key]:

@@ -185,34 +185,37 @@ def get_student_progress(day: str) -> dict[str, dict]:
 
 def get_student_checks(day: str, student_names: list[str]) -> dict[str, dict]:
     """
-    해당 요일 과제 탭에서 특정 학생들의 체크 항목 읽기.
-    반환: {"학생명": {"과제완수": True, "레슨통과": False, "부스클리닉": True}, ...}
+    해당 요일 과제 탭에서 특정 학생들의 체크 항목을 Sheets API로 '실시간' 읽기.
+    ※ xlsx export 는 몇십 초 지연이 있어 방금 시트에서 바꾼 값이 안 보일 수 있으므로
+      values API 로 직접 조회한다(지연 없음).
+    반환: {"학생명": {"과제완수": bool, "레슨통과": bool, "부스클리닉": bool}, ...}
     D열=지각1회, E열=지각2회, F열=과제완수, G열=레슨통과, H열=프리토킹, I열=부스&클리닉
     """
     sheet_name = HOMEWORK_SHEETS.get(day)
     if not sheet_name:
         return {}
-    xlsx_bytes = _get_xlsx()
-    wb = load_workbook(io.BytesIO(xlsx_bytes), data_only=True)
-    if sheet_name not in wb.sheetnames:
-        return {}
-    ws = wb[sheet_name]
-    rows = [[str(cell) if cell is not None else "" for cell in row] for row in ws.iter_rows(values_only=True)]
+
+    rng = quote(f"'{sheet_name}'!A:I", safe="")
+    url = f"{SHEETS_API}/{SHEET_ID}/values/{rng}?valueRenderOption=UNFORMATTED_VALUE"
+    resp = requests.get(url, headers=auth_headers())
+    resp.raise_for_status()
+    values = resp.json().get("values", [])
+
+    def _is_true(v) -> bool:
+        # 체크박스는 UNFORMATTED_VALUE 로 읽으면 파이썬 bool True/False 로 온다.
+        return v is True or str(v).strip().upper() == "TRUE"
 
     result = {}
-    for row in rows:
-        if not row:
+    for row in values:
+        if not row or not str(row[0]).strip():
             continue
-        name = row[0].strip()
+        name = str(row[0]).strip()
         if name not in student_names:
             continue
-        hw_check = str(row[5]).upper() == "TRUE" if len(row) > 5 else False   # F열: 과제완수
-        ls_check = str(row[6]).upper() == "TRUE" if len(row) > 6 else False   # G열: 레슨통과
-        cl_check = str(row[8]).upper() == "TRUE" if len(row) > 8 else False   # I열: 부스&클리닉
         result[name] = {
-            "과제완수": hw_check,
-            "레슨통과": ls_check,
-            "부스클리닉": cl_check,
+            "과제완수":  _is_true(row[5]) if len(row) > 5 else False,   # F열
+            "레슨통과":  _is_true(row[6]) if len(row) > 6 else False,   # G열
+            "부스클리닉": _is_true(row[8]) if len(row) > 8 else False,   # I열
         }
     return result
 
