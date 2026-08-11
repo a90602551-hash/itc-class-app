@@ -373,6 +373,14 @@ for i, name in enumerate(students):
             pool       = st.session_state[pool_key]
             words_all  = st.session_state[base_key]
 
+            # shown 이 비었는데 pool 에 남아있으면 다음 묶음(최대 3개)을 자동으로 올림.
+            # (지우기로 3개를 다 지워도 pool 이 안 채워져 카드/복습버튼이 둘 다 안 뜨던 막힌 상태 방지)
+            if not shown and pool:
+                shown = pool[:3]
+                pool  = pool[3:]
+                st.session_state[shown_key] = shown
+                st.session_state[pool_key]  = pool
+
             remaining = len(pool)
             if remaining:
                 st.markdown(f"<span style='color:gray;font-size:0.78em;'>+{remaining}개 남음</span>", unsafe_allow_html=True)
