@@ -359,6 +359,12 @@ for i, name in enumerate(students):
                             st.session_state[grammar_cache_key] = cached
                 grammar_text = cached
 
+        # 문법 사용 카운터 상태 (하단에 문법이 표시되는 학생만 대상)
+        has_grammar = bool(grammar_title) or (bool(grammar_text) and "없음" not in grammar_text)
+        gcnt_key = f"gcnt_{name}_{selected_idx}"
+        if has_grammar and gcnt_key not in st.session_state:
+            st.session_state[gcnt_key] = 0
+
         # ── 단어 풀 표시 ──
         if items:
             display_mode = st.session_state["modes"].get(name, "words")
@@ -398,11 +404,16 @@ for i, name in enumerate(students):
                     return False  # 항목 있는데 아직 시작 안 함
                 return not st.session_state[_pk]  # 풀 비면 소진
 
-            both_done = _mode_done("words") and _mode_done("expressions")
+            grammar_ok = (not has_grammar) or st.session_state.get(gcnt_key, 0) >= 6
+            both_done = _mode_done("words") and _mode_done("expressions") and grammar_ok
 
             if not pool and not both_done:
-                _other = "표현" if display_mode == "words" else "단어"
-                st.markdown(f"<span style='color:#bbb;font-size:0.75em;'>🔀 {_other}까지 다 쓰면 복습 버튼이 나와요</span>", unsafe_allow_html=True)
+                _todo = []
+                if not _mode_done("words"): _todo.append("단어")
+                if not _mode_done("expressions"): _todo.append("표현")
+                if has_grammar and st.session_state.get(gcnt_key, 0) < 6: _todo.append("문법 6회")
+                if _todo:
+                    st.markdown(f"<span style='color:#bbb;font-size:0.75em;'>🔀 {', '.join(_todo)} 채우면 복습 버튼이 나와요</span>", unsafe_allow_html=True)
 
             if both_done:
                 prev_offset_key = f"prev_offset_{name}_{selected_idx}"   # 단어·표현 공유 카운터
@@ -485,5 +496,24 @@ for i, name in enumerate(students):
                 key=f"grammar_box_{name}_{selected_idx}",
                 label_visibility="collapsed"
             )
+
+        # 문법 사용 카운터 — 6회 채우면 복습 버튼 조건 충족(+강사가 프리토킹과 함께 +1점 반영)
+        if has_grammar:
+            _gcnt = st.session_state.get(gcnt_key, 0)
+            _gc1, _gc2, _gc3 = st.columns([1, 1, 3])
+            with _gc1:
+                if st.button("📝 문법 +1", key=f"gplus_{name}_{selected_idx}",
+                             type="primary" if _gcnt < 6 else "secondary"):
+                    st.session_state[gcnt_key] = min(6, _gcnt + 1)
+                    st.rerun()
+            with _gc2:
+                if st.button("−1", key=f"gminus_{name}_{selected_idx}"):
+                    st.session_state[gcnt_key] = max(0, _gcnt - 1)
+                    st.rerun()
+            with _gc3:
+                if _gcnt >= 6:
+                    st.markdown("<div style='padding-top:6px;color:#2E7D32;font-weight:bold;'>문법 6/6 ✅ +1점</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div style='padding-top:6px;color:#888;font-weight:bold;'>문법 사용 {_gcnt}/6</div>", unsafe_allow_html=True)
 
         st.markdown("")
