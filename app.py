@@ -365,6 +365,13 @@ for i, name in enumerate(students):
         if has_grammar and gcnt_key not in st.session_state:
             st.session_state[gcnt_key] = 0
 
+        # 유닛 소제목 (플루언트: API의 title 표시. "Unit N: 소제목" 형태면 소제목만)
+        if is_fluent:
+            _unit_title = (content_obj.get("title", "") or "").strip()
+            _subtitle = _unit_title.split(":", 1)[1].strip() if ":" in _unit_title else _unit_title
+            if _subtitle and _subtitle.lower() != f"unit {unit}".lower():
+                st.markdown(f"<div style='color:#2E7D32;font-size:0.92em;font-weight:600;margin:1px 0 4px 0;'>📖 {_subtitle}</div>", unsafe_allow_html=True)
+
         # ── 단어 풀 표시 ──
         if items:
             display_mode = st.session_state["modes"].get(name, "words")
