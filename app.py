@@ -130,22 +130,37 @@ hr { margin: 3px 0 !important; }
 """, unsafe_allow_html=True)
 
 # 오늘의 대화 주제 (진도 가장 낮은 학생 기준)
-lowest = None
+# ITC(레슨) 학생이 있으면 그 레슨 주제, 없으면 플루언트(유닛) 소제목을 상단에 표시
+lowest_itc = None
+lowest_fluent = None
 for name in students:
     full_name = match_full_name(name, list(progress.keys())) or name
     p = progress.get(full_name, {})
-    lv, ls = p.get("level"), p.get("lesson")
+    lv, ls, un = p.get("level"), p.get("lesson"), p.get("unit")
     if lv and ls:
-        if lowest is None or (lv, ls) < (lowest[0], lowest[1]):
-            lowest = (lv, ls)
+        if lowest_itc is None or (lv, ls) < lowest_itc:
+            lowest_itc = (lv, ls)
+    elif lv and un:
+        if lowest_fluent is None or (lv, un) < lowest_fluent:
+            lowest_fluent = (lv, un)
 
-if lowest:
-    topic_key = f"content_L{lowest[0]}_L{lowest[1]}"
+topic_title = ""
+if lowest_itc:
+    topic_key = f"content_L{lowest_itc[0]}_L{lowest_itc[1]}"
     if topic_key not in st.session_state:
-        st.session_state[topic_key] = fetch_lesson_content(lowest[0], lowest[1])
+        st.session_state[topic_key] = fetch_lesson_content(lowest_itc[0], lowest_itc[1])
     topic_title = st.session_state[topic_key].get("title", "")
-    if topic_title:
-        st.markdown(f"### 💬 오늘의 대화 주제: {topic_title}")
+elif lowest_fluent:
+    fkey = f"fluent_L{lowest_fluent[0]}_U{lowest_fluent[1]}"
+    if fkey not in st.session_state:
+        st.session_state[fkey] = fetch_fluent_content(lowest_fluent[0], lowest_fluent[1])
+    _ft = (st.session_state[fkey].get("title", "") or "").strip()
+    topic_title = _ft.split(":", 1)[1].strip() if ":" in _ft else _ft
+    if topic_title.lower() == f"unit {lowest_fluent[1]}".lower():
+        topic_title = ""   # 소제목 없이 "Unit N"만이면 표시 안 함
+
+if topic_title:
+    st.markdown(f"### 💬 오늘의 대화 주제: {topic_title}")
 
 # 체크 항목 + 프리토킹 포인트 일괄 집계 버튼
 if st.button("✅ 오늘 수업 포인트 집계", help="과제완수/레슨통과/부스&클리닉 체크 + 프리토킹 포인트를 한꺼번에 반영"):
@@ -364,13 +379,6 @@ for i, name in enumerate(students):
         gcnt_key = f"gcnt_{name}_{selected_idx}"
         if has_grammar and gcnt_key not in st.session_state:
             st.session_state[gcnt_key] = 0
-
-        # 유닛 소제목 (플루언트: API의 title 표시. "Unit N: 소제목" 형태면 소제목만)
-        if is_fluent:
-            _unit_title = (content_obj.get("title", "") or "").strip()
-            _subtitle = _unit_title.split(":", 1)[1].strip() if ":" in _unit_title else _unit_title
-            if _subtitle and _subtitle.lower() != f"unit {unit}".lower():
-                st.markdown(f"<div style='color:#2E7D32;font-size:0.92em;font-weight:600;margin:1px 0 4px 0;'>📖 {_subtitle}</div>", unsafe_allow_html=True)
 
         # ── 단어 풀 표시 ──
         if items:
