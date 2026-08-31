@@ -1,4 +1,5 @@
 import re
+import datetime
 import requests
 import io
 import zipfile
@@ -54,12 +55,37 @@ def _fetch_sheet_data(sheet_name: str) -> list[list[str]]:
     return rows
 
 
+def _resolve_timetable_sheet(day: str) -> str | None:
+    """시간표 탭을 '요일'로 해석 ('N월 {요일}' 형식에서 월 접두어는 무시).
+    현재 월 탭을 우선하되, 없으면 아무 월의 해당 요일 탭이나 사용(월말/월초 경계 대응).
+    하나도 없으면 None."""
+    try:
+        wb = load_workbook(io.BytesIO(_get_xlsx()), read_only=True, data_only=True)
+        names = list(wb.sheetnames)
+    except Exception:
+        return DAY_SHEETS.get(day)   # 폴백: 기존 방식
+    pat = re.compile(rf"^(\d{{1,2}})월\s*{re.escape(day)}$")
+    matches = []
+    for n in names:
+        m = pat.match(str(n).strip())
+        if m:
+            matches.append((int(m.group(1)), n))
+    if not matches:
+        return None
+    cur = datetime.datetime.now().month
+    for mon, name in matches:          # 현재 월 탭 우선
+        if mon == cur:
+            return name
+    ge = sorted(mt for mt in matches if mt[0] >= cur)   # 없으면 이후 월 우선
+    return ge[0][1] if ge else sorted(matches)[-1][1]   # 그것도 없으면 가장 큰 월
+
+
 def get_student_groups(day: str) -> list[dict]:
     """
     시간표 탭에서 시간대별 학생 그룹을 추출.
     반환: [{"time": "14:35", "students": ["배서준", ...]}, ...]
     """
-    sheet_name = DAY_SHEETS.get(day)
+    sheet_name = _resolve_timetable_sheet(day)
     if not sheet_name:
         return []
 
