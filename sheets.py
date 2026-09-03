@@ -64,20 +64,28 @@ def _resolve_timetable_sheet(day: str) -> str | None:
         names = list(wb.sheetnames)
     except Exception:
         return DAY_SHEETS.get(day)   # 폴백: 기존 방식
-    pat = re.compile(rf"^(\d{{1,2}})월\s*{re.escape(day)}$")
-    matches = []
+    # 'N월 {요일}'(월 접두어) 또는 그냥 '{요일}'(접두어 없음·주말 탭 등) 둘 다 인식
+    pat = re.compile(rf"^(?:(\d{{1,2}})월\s*)?{re.escape(day)}$")
+    prefixed = []   # (month, name)
+    bare = None
     for n in names:
         m = pat.match(str(n).strip())
-        if m:
-            matches.append((int(m.group(1)), n))
-    if not matches:
-        return None
+        if not m:
+            continue
+        if m.group(1):
+            prefixed.append((int(m.group(1)), n))
+        else:
+            bare = n
     cur = datetime.datetime.now().month
-    for mon, name in matches:          # 현재 월 탭 우선
+    for mon, name in prefixed:          # 1) 현재 월 탭 우선
         if mon == cur:
             return name
-    ge = sorted(mt for mt in matches if mt[0] >= cur)   # 없으면 이후 월 우선
-    return ge[0][1] if ge else sorted(matches)[-1][1]   # 그것도 없으면 가장 큰 월
+    if bare:                            # 2) 월 없는 요일 탭 (예: 토, 일)
+        return bare
+    if prefixed:                        # 3) 다른 월 탭 (이후 월 우선, 없으면 최대)
+        ge = sorted(mt for mt in prefixed if mt[0] >= cur)
+        return ge[0][1] if ge else sorted(prefixed)[-1][1]
+    return None
 
 
 def get_student_groups(day: str) -> list[dict]:
